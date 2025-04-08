@@ -61,3 +61,66 @@
 ; (test 0 (p))
 ; -> (if (= 0 0) 0 (p))
 ; -> 0
+
+
+; # 1.1.7
+(define (sqrt-iter guess x)
+  (if (good-enough? guess x)
+      guess
+      (sqrt-iter (improve guess x)
+                 x)))
+
+(define (improve guess x)
+  (average guess (/ x guess)))
+
+(define (average x y)
+  (/ (+ x y) 2))
+
+(define (good-enough? guess x)
+  (< (abs (- (square guess) x)) 0.001))
+
+(define (sqrt x)
+  (sqrt-iter 1.0 x))
+
+; ------------ 1.1.7 Exercises
+
+; ---- Ex 1.6
+(define (new-if predicate then-clause else-clause)
+  (cond (predicate then-clause)
+        (else else-clause)))
+(define (sqrt-iter-new-if guess x)
+  (new-if (good-enough? guess x)
+          guess
+          (sqrt-iter-new-if (improve guess x)
+                     x)))
+; Since new-if is not a special form, the interpreter will evaluate all arguments before applying it.
+; However, the second argument involves a sqrt-iter-new-form procedure call, which again will need to evaluate all the new-if arguments, entering an infinite loop.
+
+; ---- Ex 1.7
+; Our sqrt procedure can fail for small and large numbers.
+; For large numbers (for example, 1e29), it can take a huge time to find the solution, since the precision requirement is independent from the original number.
+; For small numbers, the procedure is not accurate enough, since the original number may be smaller than 0.001.
+; A version that uses the variation between two consecutive guesses is suitable for both small and big numbers.
+
+(define (new-sqrt-iter x guess previous-guess)
+  (if (new-good-enough? guess previous-guess)
+      guess
+      (new-sqrt-iter x (improve guess x) guess)))
+
+(define (new-good-enough? guess previous-guess)
+  (< (/ (abs (- guess previous-guess)) guess) 0.000001))
+
+(define (new-sqrt x)
+  (new-sqrt-iter x 1.0
+
+					; ---- Ex 1.8
+(define (cube-root-iter x guess previous-guess)
+  (if (new-good-enough? guess previous-guess)
+      guess
+      (cube-root-iter x (improve-cube-root guess x) guess)))
+(define (improve-cube-root guess x)
+  (/ (+ (/ x (square guess))
+	(* 2 guess))
+     3))
+(define (cube-root x)
+  (cube-root-iter x 1.0 0))
