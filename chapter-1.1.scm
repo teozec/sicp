@@ -111,7 +111,7 @@
   (< (/ (abs (- guess previous-guess)) guess) 0.000001))
 
 (define (new-sqrt x)
-  (new-sqrt-iter x 1.0
+  (new-sqrt-iter x 1.0 0))
 
 					; ---- Ex 1.8
 (define (cube-root-iter x guess previous-guess)
@@ -124,3 +124,15 @@
      3))
 (define (cube-root x)
   (cube-root-iter x 1.0 0))
+
+					; # 1.1.8
+(define (sqrt x)
+  (define (good-enough? guess previous-guess)
+    (< (/ (abs (- guess previous-guess)) guess) 0.000001))
+  (define (improve guess)
+    (average guess (/ x guess)))
+  (define (sqrt-iter guess previous-guess)
+    (if (good-enough? guess previous-guess)
+	guess
+	(sqrt-iter (improve guess) guess)))
+  (sqrt-iter 1.0 0))
