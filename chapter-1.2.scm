@@ -37,3 +37,89 @@
 (define (f n) (A 0 n)) ; f(n) = 2n
 (define (g n) (A 1 n)) ; g(n) = 2^n
 (define (h n) (A 2 n)) ; h(n) = 2^(2^(...^2)) (n times)
+
+
+; Section 1.2.2
+
+; Tree-recursive, O(e^n)
+(define (fib-rec n)
+  (cond ((= n 0) 0)
+	((= n 1) 1)
+	(else (+ (fib-rec (- n 1))
+		 (fib-rec (- n 2))))))
+
+; Linear iterative, O(n)
+(define (fib-iter n)
+  (define (iter a b step)
+    (if (= step n)
+	b
+	(iter (+ a b)
+	      a
+	      (+ 1 step))))
+  (iter 1 0 0))
+
+; Tree recursive, but much harder to develop an iterative version.
+(define (count-change amount)
+  (define (cc remaining-amount kinds-of-coins)
+    (cond ((= remaining-amount 0) 1)
+	  ((< remaining-amount 0) 0)
+	  ((= kinds-of-coins 0) 0)
+	  (else (+ (cc remaining-amount (- kinds-of-coins 1))
+		   (cc (- remaining-amount (first-denomination kinds-of-coins))
+		       kinds-of-coins)))))
+  (define (first-denomination kinds-of-coins)
+    (cond ((= kinds-of-coins 1) 1)
+	  ((= kinds-of-coins 2) 5)
+	  ((= kinds-of-coins 3) 10)
+	  ((= kinds-of-coins 4) 25)
+	  ((= kinds-of-coins 5) 50)))
+  (cc amount 5))
+
+
+; ---- Ex. 1.11
+(define (f-rec n)
+  (if (< n 3)
+      n
+      (+ (f-rec (- n 1))
+	 (* 2 (f-rec (- n 2)))
+	 (* 3 (f-rec (- n 3))))))
+
+(define (f-iter n)
+  (define (iter a b c step)
+    (if (= step n)
+	c
+	(iter (+ a (* 2 b) (* 3 c))
+	      a
+	      b
+	      (+ step 1))))
+      (iter 2 1 0 0))
+
+; ---- Ex 1.12
+; The procedure does not handle invalid input (negative numbers, index > line).
+(define (pascal line index)
+  (if (or (= index 0) (= index line))
+      1
+      (+ (pascal (- line 1) (- index 1))
+	 (pascal (- line 1) index))))
+
+; ---- Ex 1.13
+; I had to get some hints for this one.
+
+; Let \phi = (1 + \sqrt(5)) / 2.
+; Let \psi = (1 - \sqrt(5)) / 2.
+; It is easy to show that both \phi and \psi solve the equation x^2 = x + 1.
+; From this equation, it follows x^(-1) + x^(-2) = 1.
+
+; Let us show that Fib(n) = (\phi^n - \psi^n) / \sqrt(5), using induction.
+; For n = 0, Fib(n) = 0, and (\phi^0 - \psi^0) = 1 - 1 = 0.
+; For n = 1, Fib(n) = 1, and (\phi^1 - \psi^1) / \sqrt(5) = (1 + \sqrt(5) - 1 + \sqrt(5)) / (2\sqrt(5)) = 1.
+; If it holds for n-1 and n-2, then:
+;     Fib(n) = Fib(n-1) + Fib(n-2) = (\phi^(n-1) - \psi^(n-1) + \phi^(n-2) - \psi^(n-2)) / \sqrt(5) =
+;            = (\phi^n (\phi^(-1) + \phi^(-2)) - \psi^n (\psi^(-1) + \psi^(-2))) / \sqrt(5) = using the equation above
+;            = (\phi^n - \psi^n) / \sqrt(5).
+
+; Therefore, \phi^n / \sqrt(5) = Fib(n) + \psi^n / \sqrt(5).
+; It can be shown that -1/2 < \psi^n / \sqrt(5) < 1/2.
+; Adding Fib(n), we get
+;     Fib(n) - 1/2 < Fib(n) + \psi^n / \sqrt(5) < Fib(n) + 1/2, therefore
+;     Fib(n) - 1/2 < \phi^n / \sqrt(5) < Fib(n) + 1/2, meaning that Fib(n) is the closest integer to \phi^n / \sqrt(5), q.e.d.
