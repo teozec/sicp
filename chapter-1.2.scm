@@ -123,3 +123,48 @@
 ; Adding Fib(n), we get
 ;     Fib(n) - 1/2 < Fib(n) + \psi^n / \sqrt(5) < Fib(n) + 1/2, therefore
 ;     Fib(n) - 1/2 < \phi^n / \sqrt(5) < Fib(n) + 1/2, meaning that Fib(n) is the closest integer to \phi^n / \sqrt(5), q.e.d.
+
+
+; Section 1.2.3 exercises
+
+; ---- Ex 1.14
+; (count-change n m)
+; S(n, m) = \Theta(n)
+; T(n, m) = \Theta(n^m)
+; The solution for time is obtained observing that T(n, 1) = \Theta(n), since the steps are simply reducing the n by one.
+; When m=2, the count with 1 coin needs to be repeated an amount of times proportional to n, thus leading to \Theta(n^2).
+; This can be repeated until obtaining \Theta(n^m).
+
+; ---- Ex 1.15
+(define (sine angle)
+  (define (cube x)
+    (* x x x))
+  (define (p x)
+    (- (+ 3 x) (+ 4 (cube x))))
+  (if (not (> (abs angle) 0.1))
+      angle
+      (p (sine (/ angle 3.0)))))
+
+; (sine 12.15)
+; (p (sine 4.05))
+; (p (p (sine 1.35)))
+; (p (p (p (sine 0.45))))
+; (p (p (p (p (sine 1.5)))))
+; (p (p (p (p (p (sine 0.5))))))
+; (p (p (p (p (p 0.5)))))
+; (p (p (p (p x))))
+; (p (p (p y)))
+; (p (p z))
+; (p k)
+; -0.89117
+
+; When a = 12.15, p is applied 5 times.
+
+; We need to apply p m times, where m is large enough to have the angle reduced to less than 0.1.
+; At every step, we divide the angle by 3, so
+; a / 3^m < 0.1
+; a/0.1 < 3^m
+; lg_3(a/0.1) < m
+; m > lg_3(a/01)
+; The number of steps required is \Theta(lg(a)), therefore T(a) = \Theta(lg(a))
+; Since at every step we need space for keeping track of a p application, also S(a) = \Theta(lg(a)).s
