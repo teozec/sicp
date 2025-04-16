@@ -168,3 +168,70 @@
 ; m > lg_3(a/01)
 ; The number of steps required is \Theta(lg(a)), therefore T(a) = \Theta(lg(a))
 ; Since at every step we need space for keeping track of a p application, also S(a) = \Theta(lg(a)).s
+
+
+; Section 1.2.4
+; Linear recursive: T = \Theta(n), S = \Theta(n)
+(define (expt-rec b n)
+  (if (= n 0)
+      1
+      (* b (expt b (-1+ n)))))
+
+; Linear iterative: T = \Theta(n), S = \Theta(1)
+(define (expt-iter b n)
+  (define (iter counter product)
+    (if (= counter 0)
+	product
+	(iter (-1+ counter) (* b product))))
+  (iter n 1))
+
+
+(define (square x) (* x x))
+(define (even? n) (= (remainder n 2) 0))
+
+; Recursive, T = \Thera(lg(n)), S = \Theta(lg(n))
+(define (fast-expt-rec b n)
+  (cond ((= n 0) 1)
+	((even? n) (square (fast-expt-rec b (/ n 2))))
+	(else (* b (fast-expt-rec b (-1+ n))))))
+
+; Section 1.2.4 exercises
+; ---- Exercise 1.16
+(define (fast-expt-iter b n)
+  (define (iter b i a)
+    (cond ((= i 0) a)
+	  ((even? i) (iter (square b) (/ i 2) a))
+	  (else (iter b (-1+ i) (* b a)))))
+  (iter b n 1))
+
+; ---- Exercise 1.17
+(define (double n) (* 2 n))
+(define (halve n) (/ n 2))
+(define (fast-mult-rec a b)
+  (cond ((= b 0) 0)
+	((even? b) (double (fast-mult-rec a (halve b))))
+	(else (+ a (fast-mult-rec a (-1+ b))))))
+
+; ---- Exercise 1.18
+(define (fast-mult-iter a b)
+  (define (iter a b x)
+    (cond ((= b 0) x)
+	  ((even? b) (iter (double a) (halve b) x))
+	  (else (iter a (-1+ b) (+ a x)))))
+  (iter a b 0))
+
+; ---- Exercise 1.19
+(define (fib b)
+  (define (iter a b p q count)
+    (cond ((= count 0) b)
+	  ((even? count)
+	   (iter a
+		 b
+		 (+ (square p) (square q))
+		 (+ (square q) (* 2 p q))
+		 (/ count 2)))
+	  (else (iter (+ (* b q) (* a q) (* a p))
+		      (+ (* b p) (* a q))
+		      p
+		      q
+		      (-1+ count))))))
