@@ -269,7 +269,8 @@
   (= (remainder b a) 0))
 
 (define (prime? n)
-  (= n (smallest-divisor n)))
+  (and (= n (smallest-divisor n))
+       (not (= n 1))))
 
 ; Testing for primality, method 2: Fermat test. Probabilistic, T = \Theta(lg(n))
 (define (expmod base exp m)
