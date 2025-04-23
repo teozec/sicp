@@ -197,3 +197,85 @@
   (g 2))
 (f square)
 (f (lambda (z) (* z (+ z 1))))
+
+(f f)
+; Using the substitution model, we obtain at each step:
+; (f 2)
+; (2 2)
+; The object 2 is not applicable: it is not a procedure.
+
+; Section 1.3.3
+(define (average x y)
+  (/ (+ x y) 2.0))
+
+(define (half-interval-method f a b)
+  (define (search neg-point pos-point)
+    (define (close-enough? x y)
+      (< (abs (- x y)) 0.001))
+    (let ((midpoint (average neg-point pos-point)))
+      (if (close-enough? neg-point pos-point)
+	  midpoint
+	  (let ((test-value (f midpoint)))
+	    (cond ((> test-value 0)
+		   (search neg-point midpoint))
+		  ((< test-value 0)
+		   (search midpoint pos-point))
+		  (else midpoint))))))
+
+  (let ((a-value (f a))
+	(b-value (f b)))
+    (cond ((and (> a-value 0) (< b-value 0))
+	   (search b a))
+	  ((and (< a-value 0) (> b-value 0))
+	   (search a b))
+	  (else
+	   (error "Values are not of opposite sign" a b)))))
+
+
+(define tolerance 0.00001)
+(define (fixed-point f first-guess)
+  (define (close-enough? v1 v2)
+    (< (abs (- v1 v2)) tolerance))
+  (define (try guess)
+    (let ((next (f guess)))
+      (if (close-enough? guess next)
+	  guess
+	  (try next))))
+  (try first-guess))
+
+(define (sqrt x)
+  (fixed-point (lambda (y) (average y (/ x y)))
+	       1.0))
+
+; ---- Exercise 1.35
+; \phi^2 = \phi + 1
+; Dividing by \phi, \phi = 1 + 1 / \phi, meaning that \phi is the fixed point of the transformation x -> 1 + 1 / x.
+(define phi
+  (fixed-point (lambda (x) (+ 1 (/ 1 x)))
+	       1.0))
+
+; ---- Exercise 1.36
+(define (fixed-point-traced f first-guess)
+  (define (close-enough? v1 v2)
+    (< (abs (- v1 v2)) tolerance))
+  (define (try guess)
+    (display guess)
+    (newline)
+    (let ((next (f guess)))
+      (if (close-enough? guess next)
+	  guess
+	  (try next))))
+  (try first-guess))
+
+; Without average-damping. 33 steps.
+(fixed-point-traced
+ (lambda (x) (/ (log 1000)
+		(log x)))
+ 2.0)
+
+; With average-damping. 8 steps.
+(fixed-point-traced
+ (lambda (x) (average x
+		      (/ (log 1000)
+			 (log x))))
+ 2.0)
