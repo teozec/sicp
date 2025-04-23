@@ -166,3 +166,34 @@
   (define (coprime? m)
     (= (gcd n m) 1))
   (filtered-product coprime? identity 1 1+ n))
+
+
+; Section 1.3.2
+(define (f x y)
+  (define (f-helper a b)
+    (+ (* x (square a))
+       (* y b)
+       (* a b)))
+  (f-helper (+ 1 (* x y))
+	    (- 1 y)))
+
+(define (f x y)
+  ((lambda (a b)
+     (+ (* x (square a))
+	(* y b)
+	(* a b)))
+   (+ 1 (* x y))
+   (- 1 y)))
+
+(define (f x y)
+  (let ((a (+ 1 (* x y)))
+	(b (- 1 y)))
+    (+ (* x (square a))
+       (* y b)
+       (* a b))))
+
+; ---- Exercise 1.34
+(define (f g)
+  (g 2))
+(f square)
+(f (lambda (z) (* z (+ z 1))))
