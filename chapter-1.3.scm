@@ -100,6 +100,14 @@
   (define (identity x) x)
   (product-iter identity 1 1+ n))
 
+(define (pi-wallis n)
+  (define (term i)
+    (* (/ (* 2 i)
+	  (- (* 2 i) 1.0))
+       (/ (* 2 i)
+	  (+ (* 2 i) 1.0))))
+  (* 2 (product-iter term 1 1+ n)))
+
 ; ---- Exercise 1.32
 (define (accumulate-rec combiner null-value term a next b)
   (if (> a b)
