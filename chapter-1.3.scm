@@ -281,9 +281,61 @@
 		(log x)))
  2.0)
 
-; With average-damping. 8 steps.
+------------------------------------------------------------; With average-damping. 8 steps.
 (fixed-point-traced
  (lambda (x) (average x
 		      (/ (log 1000)
 			 (log x))))
  2.0)
+
+; ---- Exercise 1.37
+(define (cont-frac-rec n d k)
+  (define (rec i)
+    (let ((ni (n i))
+	  (di (d i)))
+      (if (= i k)
+	  (/ ni di)
+	  (/ ni (+ di (rec (1+ i)))))))
+  (rec 1))
+
+(define (phi-rec k)
+  (/ 1
+     (cont-frac-rec (lambda (i) 1.0)
+		    (lambda (i) 1.0)
+		    k)))
+
+(define (cont-frac-iter n d k)
+  (define (iter i result)
+    (if (= i 0)
+	result
+	(iter (-1+ i)
+	      (/ (n i)
+		 (+ (d i) result)))))
+  (iter k 0))
+
+(define (phi-iter k)
+  (/ 1
+     (cont-frac-iter (lambda (i) 1.0)
+		    (lambda (i) 1.0)
+		    k)))
+
+; ---- Exercise 1.38
+(define (e-euler k)
+  (+ 2
+     (cont-frac-iter (lambda (i) 1.0)
+		     (lambda (i)
+		       (cond ((= i 1) 1)
+			     ((= i 2) 2)
+			     ((not (= (remainder i 3) 2)) 1)
+			     (else (* 2 (1+ (quotient i 3))))))
+		     k)))
+
+; ---- Exercise 1.39
+(define (tan-cf x k)
+  (cont-frac-iter (lambda (i)
+		    (if (= i 1)
+			x
+			(- (square x))))
+		  (lambda (i)
+		    (-1+ (* 2 i)))
+		  k))
