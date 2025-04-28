@@ -206,7 +206,7 @@
 (f square)
 (f (lambda (z) (* z (+ z 1))))
 
-(f f)
+; (f f)
 ; Using the substitution model, we obtain at each step:
 ; (f 2)
 ; (2 2)
@@ -339,3 +339,159 @@
 		  (lambda (i)
 		    (-1+ (* 2 i)))
 		  k))
+
+; Section 1.3.4
+(define tolerance 0.00001)
+(define (fixed-point f first-guess)
+  (define (close-enough? v1 v2)
+    (< (abs (- v1 v2)) tolerance))
+  
+  (define (try guess)
+    (let ((next (f guess)))
+      (if (close-enough? guess next)
+	  guess
+	  (try next))))
+  
+  (try first-guess))
+
+(define (average x y)
+  (/ (+ x y) 2))
+(define (average-damp f)
+  (lambda (x) (average x (f x))))
+
+(define (sqrt x)
+  (fixed-point (average-damp (lambda (y) (/ x y)))
+	       1.0))
+(define (cube-root x)
+  (fixed-point (average-damp (lambda (y) (/ x (square y))))
+	       1.0))
+
+(define (deriv f)
+  (lambda (x)
+    (/ (- (f (+ x dx))
+	  (f x))
+       dx)))
+(define dx 0.00001)
+(define (newton-transform f)
+  (lambda (x)
+    (- x (/ (f x) ((deriv f) x)))))
+
+(define (newtons-method f guess)
+  (fixed-point (newton-transform f) guess))
+
+(define (sqrt-newton x)
+  (newtons-method (lambda (y) (- (square y) x))
+		  1.0))
+
+(define (fixed-point-of-transform g transform guess)
+  (fixed-point (transform g) guess))
+
+(define (sqrt-damp x)
+  (fixed-point-of-transform (lambda (y) (/ x y))
+			    average-damp
+			    1.0))
+
+(define (sqrt-newton x)
+  (fixed-point-of-transform (lambda (y) (- (square y) x))
+			    newton-transform
+			    1.0))
+
+; ---- Exercise 1.40
+(define (cube x) (* x x x))
+(define (square x) (* x x))
+(define (cubic a b c)
+  (lambda (x)
+    (+ (cube x)
+       (* a (square x))
+       (* b x)
+       c)))
+
+; ---- Exercise 1.41
+(define (double f)
+  (lambda (x) (f (f x))))
+
+(((double (double double)) 1+) 5) ; 5 + 16 = 21
+; First of all, we consider (double (double double)).
+; (double double) is a procedure that takes a procedure as argument. Its double is the following (by substitution):
+(lambda (f)
+  ((double double) ((double double) f)))
+; Then, we analyze (double double), which is
+(lambda (g)
+  (double (lambda (x) (g (g x)))))
+(lambda (g)
+  (lambda (x) (g (g (g (g x))))))
+; Substituting the external (double double) in the previous expression, which has as argument the procedure ((double double) f), we obtain
+(lambda (f)
+  (lambda (x)
+    (((double double) f)
+     (((double double) f)
+      (((double double) f)
+       (((double double) f) x))))))
+; Finally, we can substitute the remaining (double double), all of which have as argument f.
+(lambda (f)
+  (lambda (x)
+    (f (f (f (f
+	      (f (f (f (f
+			(f (f (f (f
+				  (f (f (f (f x))))))))))))))))))
+; Which applies the f function 16 times. In our example, f is 1+, so ((double (double double)) 1+) is equal to
+(lambda (x) (+ x 16))
+; Which, applied to 5, gives 21.
+
+; ---- Exercise 1.42
+(define (compose f g)
+  (lambda (x) (f (g x))))
+
+; ---- Exercise 1.43
+(define (repeated f n)
+  (define (loop i result)
+    (if (= i n)
+	result
+	(loop (1+ i)
+	      (compose f result))))
+  (loop 0 (lambda (x) x)))
+
+; ---- Exercise 1.44
+(define (smooth f)
+  (lambda (x)
+    (/ (+ (f (- x dx))
+	  (f x)
+	  (f (+ x dx)))
+       3.0)))
+(define (n-folded-smooth f n)
+  (lambda (x)
+    ((repeated smooth n) x)))
+
+; ---- Exercise 1.45
+; The number of needed damps increases by 1 everytime n doubles.
+(define (root x n)
+  (fixed-point-of-transform (lambda (y) (/ x (expt y (-1+ n))))
+			    (repeated average-damp (truncate (log2 n)))
+			    1.0))
+
+; ---- Exercise 1.46
+(define (iterative-improve good-enough? improve)
+  (define (iter guess)
+    (let ((next (improve guess)))
+      (if (good-enough? next guess)
+	  guess
+	  (iter next))))
+  iter)
+
+(define (sqrt x)
+  (define (good-enough? next guess)
+    (< (/ (abs (- next guess))
+	  guess)
+       0.000001))
+  (let ((improve (average-damp (lambda (guess) (/ x guess)))))
+    (let ((improve-loop (iterative-improve good-enough? improve)))
+      (improve-loop 1.0))))
+
+(define tolerance 0.00001)
+(define (fixed-point f first-guess)
+  (define (close-enough? v1 v2)
+    (< (abs (- v1 v2)) tolerance))
+  (let ((improve-loop (iterative-improve close-enough? f)))
+    (improve-loop first-guess)))
+
+
