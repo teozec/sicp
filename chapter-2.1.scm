@@ -170,3 +170,153 @@
 (define two (lambda (f) (lambda (x) (f (f x)))))
 (define (add n m)
   (lambda (f) (lambda (x) ((n f) ((m f) x)))))
+
+
+
+; Section 2.1.4
+(define (add-interval x y)
+  (make-interval (+ (lower-bound x) (lower-bound y))
+		 (+ (upper-bound x) (upper-bound y))))
+
+(define (mul-interval x y)
+  (let ((p1 (* (lower-bound x) (lower-bound y)))
+	(p2 (* (lower-bound x) (upper-bound y)))
+	(p3 (* (upper-bound x) (lower-bound y)))
+	(p4 (* (upper-bound x) (upper-bound y))))
+    (make-interval (min p1 p2 p3 p4)
+		   (max p1 p2 p3 p4))))
+
+(define (div-interval x y)
+  (mul-interval x
+		(make-interval (/ 1.0 (upper-bound y))
+			       (/ 1.0 (lower-bound y)))))
+
+; --- Exercise 2.7
+(define (make-interval a b) (cons a b))
+(define (lower-bound x) (car x))
+(define (upper-bound x) (cdr x))
+
+; ---- Exercise 2.8
+(define (sub-interval x y)
+  (add-interval x
+		(make-interval (- (upper-bound y))
+			       (- (lower-bound y)))))
+
+; ---- Exercise 2.9
+; I will use standard notation instead of s-expressions
+
+; 2 * width([x1, x2]) = x1 - x2
+; 2 * width([y1, y2]) = y1 - y2
+
+; 2 * width([x1, x2] + [y1, y2]) = 
+; = 2 * width([x1+y1, x2+y2]) =
+; = x1 + y1 - x2 -y2 =
+; = x1 - x2 + y1 -y2 =
+; = 2 * width([x1, x2]) + 2 * width([y1, y2])
+
+; 2 * width([x1, x2] - [y1, y2]) =
+; = 2 * width([x1-y2, x2-y1]) =
+; = x1 - y2 - x2 + y1 =
+; = x1 - x2 - y1 + y2 =
+; = 2 * width([x1, x2]) - 2 * width([y1, y2])
+
+
+
+; ----- Exercise 2.10
+(define (div-interval x y)
+  (if (and (< (lower-bound y) 0)
+	   (> (upper-bound y) 0))
+      (error "Division by an inteval containing 0 - DIV-INTERVAL")
+      (mul-interval x
+		    (make-interval (/ 1.0 (upper-bound y))
+				   (/ 1.0 (lower-bound y))))))
+
+; ---- Exercise 2.11
+(define (mul-interval x y)
+  (let ((xl (lower-bound x))
+	(xu (upper-bound x))
+	(yl (lower-bound y))
+	(yu (upper-bound y)))
+    (cond ((> xl 0)
+	   (cond ((> yl 0) (make-interval (* xl yl) (* xu yu)))
+		 ((> yu 0) (make-interval (* xu yl) (* xu yu)))
+		 (else (make-interval (* xu yu) (* xl yl)))))
+	  ((> xu 0)
+	   (cond ((> yl 0) (make-interval (* xl yu) (* xu yu)))
+		 ((> yu 0)
+		  (let ((p1 (* xl yl))
+			(p2 (* xl yu))
+			(p3 (* xu yl))
+			(p4 (* xu yu)))
+		    (make-interval (min p1 p2 p3 p4)
+				   (max p1 p2 p3 p4))))
+		 (else (make-interval (* xu yl) (* xl yu)))))
+	  (else
+	   (cond ((> yl 0) (make-interval (* xu yu) (* xl yl)))
+		 ((> yu 0) (make-interval (* xu yu) (* xu yl)))
+		 (else (make-interval (* xl yl) (* xu yu))))))))
+
+	    
+(define (make-center-width c w)
+  (make-interval (- c w) (+ c w)))
+
+(define (center i)
+  (/ (+ (lower-bound i) (upper-bound i)) 2))
+
+(define (width i)
+  (/ (- (upper-bound i) (lower-bound i)) 2))
+
+; ---- Exercise 2.12
+(define (make-center-percentage c p)
+  (make-center-width c (* c p)))
+
+(define (percentage-width i)
+  (/ (width i) (center i)))
+
+; ---- Exercise 2.13
+; a (1 \pm x) b (1 \pm y) =
+; = ab (1 \pm x) (1 \pm y) =
+; = ab (1 \pm x \pm y \pm xy)
+; \approx ab (1 \pm x \pm y)
+; The approximate formula for the percentage, if the two original percentages are x and y, is x+y.
+
+
+(define (par1 r1 r2)
+  (div-interval (mul-interval r1 r2)
+		(add-interval r1 r2)))
+
+(define (par2 r1 r2)
+  (let ((one (make-interval 1 1)))
+    (div-interval one
+		   (add-interval (div-interval one r1)
+				 (div-interval one r2)))))
+
+; ---- Exercise 2.14
+(par1 (make-interval 100 200) (make-interval 20 40)) ; [8.33, 66.67]
+(par2 (make-interval 100 200) (make-interval 20 40)) ; [16.67, 33.33]
+
+(define (print-center-percentage i)
+  (newline)
+  (display (center i))
+  (display " [")
+  (display (* 100 (percentage-width i)))
+  (display "%]"))
+
+(let ((a (make-center-percentage 100 0.05))
+      (b (make-center-percentage 20 0.01)))
+  (print-center-percentage (div-interval a a))
+  (print-center-percentage (div-interval a b))
+  (print-center-percentage (div-interval b a))
+  (print-center-percentage (div-interval b b)))
+
+; When dividing two intervals, the percentage width is approximately the sum of the two percentage widths.
+; Therefore, when dividing an interval by itself the percentage witdh of the result is the double of the original interval one.
+
+; ---- Exercise 2.15
+; per2 is a better program because it considers the interval uncertainty only once, for each interval,
+; whereas par1 treats the two R1 as different intervals even though they have the same value, this increasing the interval width unnecessarily.
+
+; ---- Exercise 2.16
+; If the same interval appears more than once in an expression, we are treating it as if it could have different values in the interval each time.
+; For example, A/A will be 1 with a percentage width about double of the width of A, while in reality it should be exactly 1: we are not sure of the value of A, but dividing it by itself is surely 1.
+; I won't try to make a general interval-arithmetic package that does not have this shortcoming :-) Maybe some other 
