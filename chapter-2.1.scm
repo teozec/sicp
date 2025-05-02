@@ -319,4 +319,4 @@
 ; ---- Exercise 2.16
 ; If the same interval appears more than once in an expression, we are treating it as if it could have different values in the interval each time.
 ; For example, A/A will be 1 with a percentage width about double of the width of A, while in reality it should be exactly 1: we are not sure of the value of A, but dividing it by itself is surely 1.
-; I won't try to make a general interval-arithmetic package that does not have this shortcoming :-) Maybe some other 
+; I won't try to make a general interval-arithmetic package that does not have this shortcoming :-) Maybe some other time.
