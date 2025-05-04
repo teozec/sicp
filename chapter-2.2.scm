@@ -283,3 +283,171 @@
 	(append rest (map (lambda (x)
 			    (cons (car s) x))
 			  rest)))))
+
+
+;; Section 2.2.3
+(define (sum-odd-squares tree)
+  (cond ((null? tree) 0)
+	((not (pair? tree))
+	 (if (odd? tree) (square tree) 0))
+	(else (+ (sum-odd-squares (car tree))
+		 (sum-odd-squares (cdr tree))))))
+
+(define (fib n)
+  (define (iter a b step)
+    (if (= step n)
+	b
+	(iter (+ a b)
+	      a
+	      (+ 1 step))))
+  (iter 1 0 0))
+
+(define (even-fibs n)
+  (define (next k)
+    (if (> k n)
+	nil
+	(let ((f (fib k)))
+	  (if (even? f)
+	      (cons f (next (+1 k)))
+	      (next (+1 k))))))
+  (next 0))
+
+(define (filter predicate sequence)
+  (cond ((null? sequence) nil)
+	((predicate (car sequence))
+	 (cons (car sequence)
+	       (filter predicate (cdr sequence))))
+	(else (filter predicate (cdr sequence)))))
+
+(define (accumulate op initial sequence)
+  (if (null? sequence)
+      initial
+      (op (car sequence)
+	  (accumulate op initial (cdr sequence)))))
+
+(define (enumerate-interval low high)
+  (if (> low high)
+      nil
+      (cons low (enumerate-interval (1+ low) high))))
+
+(define (enumerate-tree tree)
+  (cond ((null? tree) nil)
+	((not (pair? tree)) (list tree))
+	(else (append (enumerate-tree (car tree))
+		      (enumerate-tree (cdr tree))))))
+
+(define (sum-odd-squares tree)
+  (accumulate +
+	      0
+	      (map square
+		   (filter odd?
+			   (enumerate-tree tree)))))
+
+(define (even-fibs n)
+  (accumulate cons
+	      nil
+	      (filter even?
+		      (map fib
+			   (enumerate-interval 0 n)))))
+
+(define (list-fib-squares n)
+  (accumulate cons
+	      nil
+	      (map square
+		   (map fib
+			(enumerate-interval 0 n)))))
+
+(define (product-of-squares-of-odd-elements sequence)
+  (accumulate *
+	      1
+	      (map square
+		   (filter odd? sequence))))
+
+(define (salary-of-highest-paid-programmer record)
+  (accumulate max
+	      0
+	      (map salary
+		   (filter programmer? records))))
+
+ ---- Exercise 2.33
+(define (my-map p sequence)
+  (accumulate (lambda (x y) (cons (p x) y)) nil sequence))
+
+(define (append seq1 seq2)
+  (accumulate cons seq2 seq1))
+
+(define (length sequence)
+  (accumulate (lambda (x y) (1+ y)) 0 sequence))
+
+;; ---- Exercise 2.34
+(define (horner-eval x coefficient-sequence)
+  (accumulate (lambda (this-coeff higher-terms)
+		(+ (* higher-terms x) this-coeff))
+	      0
+	      coefficient-sequence))
+
+;; ---- Exercise 2.35
+(define (count-leaves t)
+  (accumulate +
+	      0
+	      (map (lambda (x)
+		     (if (pair? x)
+			 (count-leaves x)
+			 1))
+		   t)))
+
+;; Alternative, found online: flatten and then add 1 for each element.
+(define (count-leaves t)
+  (accumulate +
+	      0
+	      (map (lambda (x) 1)
+		   (enumerate-tree t))))
+
+;; ---- Exercise 2.36
+(define (accumulate-n op init seqs)
+  (if (null? (car seqs))
+      nil
+      (cons (accumulate op init (map car seqs))
+	    (accumulate-n op init (map cdr seqs)))))
+
+;; ---- Exercise 2.37
+(define (dot-product v w)
+  (accumulate + 0 (map * v w)))
+
+(define (matrix-*-vector m v)
+  (map (lambda (mi) (dot-product mi v))
+       m))
+
+(define (transpose mat)
+  (accumulate-n cons nil mat))
+
+(define (matrix-*-matrix m n)
+  (let ((cols (transpose n)))
+    (map (lambda (v) (matrix-*-vector m v)) cols)))
+
+
+;; ---- Exercise 2.38
+(define (fold-left op initial sequence)
+  (define (iter result rest)
+    (if (null? rest)
+	result
+	(iter (op result (car rest))
+	      (cdr rest))))
+  (iter initial sequence))
+
+(fold-right / 1 (list 1 2 3)) ; 3/2
+(fold-left / 1 (list 1 2 3)) ; 1/6
+(fold-right list nil (list 1 2 3)) ; (1 (2 (3 ())))
+(fold-left list nil (list 1 2 3)) ; (((() 1) 2) 3)
+;; To produce the same value for every sequence, op needs to be commutative and associative. For example:
+(fold-right + 0 (list 1 2 3)) ; 6
+(fold-left + 0 (list 1 2 3)) ; 6
+    
+;; ---- Exercise 2.39
+(define (reverse sequence)
+  (fold-right (lambda (x y) (append y (list x))) nil sequence))
+
+(define (reverse sequence)
+  (fold-left (lambda (x y) (cons y x)) nil sequence))
+
+(reverse '(1 2 3 4))
