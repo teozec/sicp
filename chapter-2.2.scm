@@ -82,7 +82,7 @@
       (cons (* (car items) factor)
 	    (scale-list (cdr items) factor))))
 
-(define (map proc items)
+(define (my-map proc items)
   (if (null? items)
       nil
       (cons (proc (car items))
