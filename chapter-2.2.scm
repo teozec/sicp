@@ -369,7 +369,7 @@
 	      (map salary
 		   (filter programmer? records))))
 
- ---- Exercise 2.33
+;; ---- Exercise 2.33
 (define (my-map p sequence)
   (accumulate (lambda (x y) (cons (p x) y)) nil sequence))
 
