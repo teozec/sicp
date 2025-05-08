@@ -1,3 +1,5 @@
+(load "lib.scm")
+
 ;; Section 2.2.1
 (define nil (list))
 
@@ -451,3 +453,143 @@
   (fold-left (lambda (x y) (cons y x)) nil sequence))
 
 (reverse '(1 2 3 4))
+
+
+;; --------
+(define (pairs n)
+  (accumulate append
+	      nil
+	      (map (lambda (i)
+		     (map (lambda (j) (list i j))
+			  (enumerate-interval 1 (-1+ i))))
+		   (enumerate-interval 1 n))))
+
+(define (flatmap proc seq)
+  (accumulate append nil (map proc seq)))
+
+(define (pairs n)
+  (flatmap (lambda (i)
+	     (map (lambda (j) (list i j))
+		  (enumerate-interval 1 (-1+ i))))
+	   (enumerate-interval 1 n)))
+
+(define (prime-sum? pair)
+  (prime? (+ (car pair) (cadr pair))))
+
+(define (make-pair-sum pair)
+  (list (car pair) (cadr pair) (+ (car pair) (cadr pair))))
+
+(define (prime-sum-pairs n)
+  (map make-pair-sum
+       (filter prime-sum?
+	       (flatmap
+		(lambda (i)
+		  (map (lambda (j) (list i j))
+		       (enumerate-interval 1 (-1+ i))))
+		  (enumerate-interval 1 n)))))
+			 
+(define (permutations s)
+  (if (null? s)
+      (list nil)
+      (flatmap (lambda (x)
+		 (map (lambda (p) (cons x p))
+		      (permutations (remove x s))))
+	       s)))
+
+(define (remove item sequence)
+  (filter (lambda (x) (not (= x item)))
+	  sequence))
+
+;; ---- Exercise 2.40
+(define (unique-pairs n)
+  (flatmap (lambda (i)
+	     (map (lambda (j) (list i j))
+		  (enumerate-interval 1 (-1+ i))))
+	   (enumerate-interval 1 n)))
+		       
+(define (prime-sum-pairs n)
+  (map make-pair-sum
+       (filter prime-sum?
+	       (unique-pairs n))))
+
+;; ---- Exercise 2.41
+(define (unique-triples n)
+  (flatmap (lambda (i)
+	     (flatmap (lambda (j)
+			(map (lambda (k) (list i j k))
+			     (enumerate-interval 1 (-1+ j))))
+		      (enumerate-interval 1 (-1+ i))))
+	   (enumerate-interval 1 n)))
+
+(define (triples-summing-to n s)
+  (filter (lambda (t) (= (+ (car t) (cadr t) (caddr t)) s))
+	  (unique-triples n)))
+
+;; ---- Exercise 2.42
+(define (queens board-size)
+  (define (queen-cols k)
+    (if (= k 0)
+	(list empty-board)
+	(filter
+	 (lambda (positions) (safe? k positions))
+	 (flatmap
+	  (lambda (rest-of-queens)
+	    (map (lambda (new-row)
+		   (adjoin-position new-row k rest-of-queens))
+		 (enumerate-interval 1 board-size)))
+	  (queen-cols (-1+ k))))))
+  (queen-cols board-size))
+
+(define empty-board (list))
+
+(define (adjoin-position row col rest)
+  (append rest (list (list col row))))
+
+(define (safe? col positions)
+  (let ((row (cadar (filter
+		     (lambda (x)
+		       (= (car x) col))
+		     positions))))
+    (= (length (filter
+		(lambda (x) (= (cadr x) row))
+		positions))
+       1)))
+
+
+;; ---- Exercise 2.43
+(define (queens-slow board-size)
+  (define (queen-cols k)
+    (if (= k 0)
+	(list empty-board)
+	(filter
+	 (lambda (positions) (safe? k positions))
+	 (flatmap
+	  (lambda (new-row)
+	    (map (lambda (rest-of-queens)
+		   (adjoin-position new-row k rest-of-queens))
+		 (queen-cols (-1+ k))))
+	    (enumerate-interval 1 board-size)))))
+  (queen-cols board-size))
+
+;; This version is slower because it does the recursive call in the inner lambda, calculating the queens of the previous steps board-size times at each step.
+;; To compare the number of steps required, let's analyze the two cases.
+;; In both algorithms, the base step is (queen-cols 0), which takes a constant time c.
+
+;; In the first version, step k:
+;; - computes the queens of step k-1
+;; - adjoins n positions to the board
+;; - filters the safe ones
+;; The time is T_a(n, k) = T_a(n, k-1) + nT(adj + safe?).
+;; Recursively, we can see that T_a(n, k) = T(0) + knT(adj + safe?).
+
+;; In the second version, step k:
+;; - computes the queens of step k-1 n times
+;; - adjoins n positions to the board
+;; - filters the safe ones
+;; The time is T_b(n, k) = nT_b(n, k-1) + nT(adj + safe?).
+;; Recursively, we can see that T_b(n, k) = n^kT(0) + n^kT(adj + safe?), since T_b(n, k-1) = nT-b(n, k-2) + nT(adj + safe?).
+
+;; Thus, comparing the two expressions, we obtain
+;; T_b(n, k) = n^k [T_a(n, k) - (n, kn - 1)T(adj + safe?)]
+;; Under the (probably false) assumption that T(adj + safe?) is constant (in particular, T(safe?) could not be O(1)), T_a(n, k) = O(kn), therefore T_b(n, k) = O(n^k kn) = O(n^k T_a(n, k))
+
