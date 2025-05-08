@@ -419,7 +419,7 @@
 	    (checked-expmod base (/ exp 2) m)
 	    m))
 	  (else
-	   (remainder (* base (expmod-miller-rabin base (-1+ exp) m))
+	   (remainder (* base (checked-expmod base (-1+ exp) m))
 		      m))))
   
   (not (= (checked-expmod a (-1+ n) n) 0)))
