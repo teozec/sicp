@@ -593,3 +593,222 @@
 ;; T_b(n, k) = n^k [T_a(n, k) - (n, kn - 1)T(adj + safe?)]
 ;; Under the (probably false) assumption that T(adj + safe?) is constant (in particular, T(safe?) could not be O(1)), T_a(n, k) = O(kn), therefore T_b(n, k) = O(n^k kn) = O(n^k T_a(n, k))
 
+
+;; Section 2.2.4
+(define (flipped-pairs painter)
+  (let ((painter2 (beside painter (flip-vert painter))))
+    (below painter painter2)))
+
+(define (right-split painter n)
+  (if (= n 0)
+      painter
+      (let ((smaller (right-split painter (-1+ n))))
+	(beside painter (below smaller smaller)))))
+
+(define (corner-split painter n)
+  (if (= n 0)
+      painter
+      (let ((up (up-split painter (-1+ n)))
+	    (right (right-split painter (-1+ n))))
+	(let ((top-left (beside up up))
+	      (bottom-right (below right right))
+	      (corner (corner-split painter (-1+ n))))
+	  (beside (below painter top-left)
+		  (below bottom-right corner))))))
+
+(define (square-limit painter n)
+  (let ((quarter (corner-split painter n)))
+    (let ((half (beside (flip-horiz quarter) (quarter))))
+      (below (flip-vert half) half))))
+
+;; ---- Exercise 2.44
+(define (up-split painter n)
+  (if (= n 0)
+      painter
+      (let ((smaller (up-split painter (-1+ n))))
+	(below painter (beside smaller smaller)))))
+
+
+(define (square-of-four tl tr bl br)
+  (lambda (painter)
+    (let ((top (beside (tl painter) (tr painter)))
+	  (bottom (beside (bl painter) (br painter))))
+      (below bottom top))))
+
+(define (flipped-pairs painter)
+  (let ((combine4
+	 (square-of-four identity flip-vert identity flip-vert)))
+    (combine4 painter)))
+
+;; ---- Exercise 2.45
+(define (split outer inner)
+  (define (rec painter n)
+    (if (= n 0)
+	painter
+	(let ((smaller (rec painter (-1+ n))))
+	  (outer painter (inner smaller smaller)))))
+  rec)
+
+
+(define (frame-coord-map frame)
+  (lambda (v)
+    (add-vect
+     (origin-frame frame)
+     (add-vect (scale-vect (xcor-vect v)
+			   (edge1-frame frame))
+	       (scale-vect (ycor-vect v)
+			   (edge2-frame frame))))))
+
+;; ---- Exercise 2.46
+(define make-vect cons)
+(define xcor-vect car)
+(define ycor-vect cdr)
+
+(define (add-vect v w)
+  (let ((xv (xcor-vect v))
+	(yv (ycor-vect v))
+	(xw (xcor-vect w))
+	(yw (ycor-vect w)))
+    (make-vect (+ xv xw)
+	       (+ yv yw))))
+
+(define (sub-vect v w)
+  (add-vect v
+	   (scale-vect -1 w)))
+
+(define (scale-vect s v)
+  (make-vect (* s (xcor-vect v))
+	     (* s (ycor-vect v))))
+
+;; ---- Exercise 2.47
+(define (make-frame origin edge1 edge2)
+  (list origin edge1 edge2))
+(define origin-frame car)
+(define edge1-frame cadr)
+(define edge2-frame caddr)
+
+(define (make-frame origin edge1 edge2)
+  (cons origin (cons edge1 edge2)))
+(define origin-frame car)
+(define edge1-frame cadr)
+(define edge2-frame cddr)
+      
+
+(define (segments->painter segment-list)
+  (lambda (frame)
+    (for-each
+     (lambda (segment)
+       (draw-line
+	((frame-coord-map frame) (start-segment segment))
+	((frame-coord-map frame) (end-segment segment))))
+       segment-list)))
+
+
+;; Boilerplate necessary to get a draw-line function on a X11 device
+(load-option 'x11)
+(define dev (make-graphics-device 'x))
+
+(define (line-drawer env)
+  (lambda (start end)
+    (graphics-draw-line env
+			(xcor-vect start)
+			(ycor-vect start)
+			(xcor-vect end)
+			(ycor-vect end))))
+
+;; Return a frame that is a bit smaller than the graphics device.
+(define (smaller-frame dev)
+  (let ((scaled-coords
+	 (let-values ((coords (graphics-coordinate-limits dev)))
+	   (map (lambda (x) (* 0.9 x)) coords))))
+    (let ((origin (make-vect (car scaled-coords)
+			     (cadr scaled-coords)))
+	  (top-left (make-vect (car scaled-coords)
+			       (cadddr scaled-coords)))
+	  (bottom-right (make-vect (caddr scaled-coords)
+				   (cadr scaled-coords))))
+      (make-frame origin
+		  (sub-vect bottom-right origin)
+		  (sub-vect top-left origin)))))
+
+(define draw-line (line-drawer dev))
+
+(define frame (smaller-frame dev))
+
+
+;; ---- Exercise 2.48
+(define make-segment cons)
+(define start-segment car)
+(define end-segment cdr)
+      
+
+;; ---- Exercise 2.49
+(define frame-bottom-left (make-vect 0 0))
+(define frame-top-left (make-vect 0 1))
+(define frame-top-right (make-vect 1 1))
+(define frame-bottom-right (make-vect 1 0))
+
+(define outline
+    (segments->painter
+     (list (make-segment frame-bottom-left frame-top-left)
+	   (make-segment frame-top-left frame-top-right)
+	   (make-segment frame-top-right frame-bottom-right)
+	   (make-segment frame-bottom-right frame-bottom-left))))
+
+(define cross
+  (segments->painter
+   (list (make-segment frame-bottom-left frame-top-right)
+	 (make-segment frame-bottom-right frame-top-left))))
+
+(define diamond
+  (let ((left-midpoint (make-vect 0 0.5))
+	(right-midpoint (make-vect 1 0.5))
+	(top-midpoint (make-vect 0.5 1))
+	(bottom-midpoint (make-vect 0.5 0)))
+    (segments->painter
+     (list (make-segment left-midpoint top-midpoint)
+	   (make-segment top-midpoint right-midpoint)
+	   (make-segment right-midpoint bottom-midpoint)
+	   (make-segment bottom-midpoint left-midpoint)))))
+
+(define wave
+  (let ((a (make-vect 0.00 0.64))
+	(b (make-vect 0.14 0.40))
+	(c (make-vect 0.30 0.60))
+	(d (make-vect 0.34 0.50))
+	(e (make-vect 0.24 0.00))
+	(f (make-vect 0.40 0.00))
+	(g (make-vect 0.50 0.30))
+	(h (make-vect 0.60 0.00))
+	(i (make-vect 0.74 0.00))
+	(j (make-vect 0.60 0.46))
+	(k (make-vect 1.00 0.16))
+	(l (make-vect 1.00 0.36))
+	(m (make-vect 0.74 0.64))
+	(n (make-vect 0.60 0.66))
+	(o (make-vect 0.64 0.84))
+	(p (make-vect 0.60 1.00))
+	(q (make-vect 0.40 1.00))
+	(r (make-vect 0.32 0.84))
+	(s (make-vect 0.40 0.64))
+	(t (make-vect 0.30 0.64))
+	(u (make-vect 0.14 0.60))
+	(v (make-vect 0.00 0.84)))
+    (segments->painter
+     (list (make-segment a b)
+	   (make-segment b c)
+	   (make-segment c d)
+	   (make-segment d e)
+	   (make-segment f g)
+	   (make-segment g h)
+	   (make-segment i j)
+	   (make-segment j k)
+	   (make-segment l m)
+	   (make-segment m n)
+	   (make-segment n o)
+	   (make-segment o p)
+	   (make-segment q r)
+	   (make-segment r s)
+	   (make-segment s t)
+	   (make-segment t u)
+	   (make-segment u v)))))
