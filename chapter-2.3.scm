@@ -36,3 +36,143 @@
 ;; The quote character ' is symbolic sugar for the special form quote. The above expression is equivalent to
 (car '(quote abracadabra))
 ;; and the first element of the list (quote abracadabra) is the symbol quote.
+
+
+;; Section 2.3.2
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+	((variable? exp)
+	 (if (same-variable? exp var) 1 0))
+	((sum? exp)
+	 (make-sum (deriv (addend exp) var)
+		   (deriv (augend exp) var)))
+	((product? exp)
+	 (make-sum
+	  (make-product (multiplier exp)
+			(deriv (multiplicand exp) var))
+	  (make-product (deriv (multiplier exp) var)
+			(multiplicand exp))))
+	(else
+	 (error "unknown expression type -- DERIV" exp))))
+
+(define (variable? x) (symbol? x))
+(define (same-variable? x y)
+  (and (variable? x) (variable? y) (eq? x y)))
+
+(define (make-sum a1 a2) (list '+ a1 a2))
+(define (sum? x)
+  (and (pair? x) (eq? (car x) '+)))
+(define (addend s) (cadr s))
+(define (augend s) (caddr s))
+
+(define (make-product m1 m2) (list '* m1 m2))
+(define (product? x)
+  (and (pair? x) (eq? (car x) '*)))
+(define (multiplier p) (cadr p))
+(define (multiplicand p) (caddr p))
+
+(deriv '(+ x 3) 'x)
+(deriv '(* x y) 'x)
+(deriv '(* (* x y) (+ x 3)) 'x)
+
+(define (=number? exp num)
+  (and (number? exp) (= exp num)))
+
+(define (make-sum a1 a2)
+  (cond ((=number? a1 0) a2)
+	((=number? a2 0) a1)
+	((and (number? a1) (number? a2)) (+ a1 a2))
+	(else (list '+ a1 a2))))
+
+(define (make-product m1 m2)
+  (cond ((or (=number? m1 0) (=number? m2 0)) 0)
+	((=number? m1 1) m2)
+	((=number? m2 1) m1)
+	((and (number? m1) (number? m2)) (* m1 m2))
+	(else (list '* m1 m2))))
+	
+;; ---- Exercise 2.56
+;; This definition uses the arbitrary-arity product defined in the next exercise.
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+	((variable? exp)
+	 (if (same-variable? exp var) 1 0))
+	((sum? exp)
+	 (make-sum (deriv (addend exp) var)
+		   (deriv (augend exp) var)))
+	((product? exp)
+	 (make-sum
+	  (make-product (multiplier exp)
+			(deriv (multiplicand exp) var))
+	  (make-product (deriv (multiplier exp) var)
+			(multiplicand exp))))
+	((exponentiation? exp)
+	 (make-product (exponent exp)
+		       (make-exponentiation (base exp)
+					    (-1+ (exponent exp)))
+		       (deriv (base exp) var)))
+	(else
+	 (error "unknown expression type -- DERIV" exp))))
+
+;; An expression is an exponentiation if it is a list, the first symbol is ** and the third symbol (the exponent) is a number (otherwise, we need function composition rule).
+(define (exponentiation? exp)
+  (and (pair? exp)
+       (= (length exp) 3)
+       (eq? (car exp) '**)
+       (number? (caddr exp))))
+
+(define (base e) (cadr e))
+(define (exponent e) (caddr e))
+(define (make-exponentiation base exponent)
+  (if (= exponent 1)
+      base
+      (list '** base exponent)))
+
+;; ---- Exercise 2.57
+(define (make-sum . a)
+  (cons '+ a))
+(define (addend s)
+  (if (equal? s '(+))
+      0
+      (cadr s)))
+(define (augend s)
+  (if (equal? s '(+))
+      0
+      (apply make-sum (cddr s))))
+
+(define (make-product . a)
+  (cons '* a))
+(define (multiplier p)
+  (if (equal? p '(*))
+      1
+      (cadr p)))
+(define (multiplicand p)
+  (if (equal? p '(*))
+      1
+      (apply make-product (cddr p))))
+
+;; To make things more complicated, let's simplify the expressions.
+(define (make-sum . a)
+  (let* ((numbers (filter number? a))
+	 (expressions (remove number? a))
+	 (numbers-sum (apply + numbers)))
+    (cond ((null? expressions) numbers-sum)
+	  ((and (= numbers-sum 0)
+		(null? (cdr expressions)))
+	   (car expressions))
+	  ((= numbers-sum 0) (cons '+ expressions))
+	  (else (cons '+ (cons numbers-sum expressions))))))
+	
+(define (make-product . a)
+  (let* ((numbers (filter number? a))
+	 (expressions (remove number? a))
+	 (numbers-product (apply * numbers)))
+    (cond ((= numbers-product 0) 0)
+	  ((null? expressions) numbers-product)
+	  ((and (= numbers-product 1)
+		(null? (cdr expressions)))
+	   (car expressions))
+	  ((= numbers-product 1) (cons '* expressions))
+	  (else (cons '* (cons numbers-product expressions))))))
+
+;; Ideas for the future: simplify expressions like (+ 2 x (+ 4 x)) to become (+ 6 x x)
