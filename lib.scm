@@ -30,3 +30,17 @@
   (cond	((= n 2) true)
 	((even? n) false)
 	(else (iter 2))))
+
+
+(define (identity x) x)
+
+(define (compose f g)
+  (lambda (x) (f (g x))))
+
+(define (repeated f n)
+  (define (loop i result)
+    (if (= i n)
+	result
+	(loop (1+ i)
+	      (compose f result))))
+  (loop 0 (lambda (x) x)))
