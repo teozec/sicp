@@ -597,7 +597,7 @@
 ;; Section 2.2.4
 (define (flipped-pairs painter)
   (let ((painter2 (beside painter (flip-vert painter))))
-    (below painter painter2)))
+    (below painter2 painter2)))
 
 (define (right-split painter n)
   (if (= n 0)
@@ -618,7 +618,7 @@
 
 (define (square-limit painter n)
   (let ((quarter (corner-split painter n)))
-    (let ((half (beside (flip-horiz quarter) (quarter))))
+    (let ((half (beside (flip-horiz quarter) quarter)))
       (below (flip-vert half) half))))
 
 ;; ---- Exercise 2.44
@@ -640,6 +640,11 @@
 	 (square-of-four identity flip-vert identity flip-vert)))
     (combine4 painter)))
 
+(define (square-limit painter n)
+  (let ((combine4 (square-of-four flip-horiz identity
+				  rotate180 flip-vert)))
+    (combine4 (corner-split painter n))))
+
 ;; ---- Exercise 2.45
 (define (split outer inner)
   (define (rec painter n)
@@ -648,6 +653,8 @@
 	(let ((smaller (rec painter (-1+ n))))
 	  (outer painter (inner smaller smaller)))))
   rec)
+(define right-split (split beside below))
+(define left-split (split below beside))
 
 
 (define (frame-coord-map frame)
@@ -789,7 +796,7 @@
 	(o (make-vect 0.64 0.84))
 	(p (make-vect 0.60 1.00))
 	(q (make-vect 0.40 1.00))
-	(r (make-vect 0.32 0.84))
+	(r (make-vect 0.36 0.84))
 	(s (make-vect 0.40 0.64))
 	(t (make-vect 0.30 0.64))
 	(u (make-vect 0.14 0.60))
@@ -812,3 +819,177 @@
 	   (make-segment s t)
 	   (make-segment t u)
 	   (make-segment u v)))))
+
+
+(define (transform-painter painter origin corner1 corner2)
+  (lambda (frame)
+    (let ((m (frame-coord-map frame)))
+      (let ((new-origin (m origin)))
+	(painter
+	 (make-frame new-origin
+		     (sub-vect (m corner1) new-origin)
+		     (sub-vect (m corner2) new-origin)))))))
+
+(define (flip-vert painter)
+  (transform-painter
+   painter
+   (make-vect 0.0 1.0)   ; new origin
+   (make-vect 1.0 1.0)   ; new end of edge1
+   (make-vect 0.0 0.0))) ; new end of edge2
+	     
+
+(define (shrink-to-upper-right painter)
+  (transform-painter
+   painter
+   (make-vect 0.5 0.5)
+   (make-vect 1.0 0.5)
+   (make-vect 0.5 1.0)))
+
+(define (rotate90 painter)
+  (transform-painter
+   painter
+   (make-vect 1.0 0.0)
+   (make-vect 1.0 1.0)
+   (make-vect 0.0 0.0)))
+
+(define (squash-inwards painter)
+  (transform-painter
+   painter
+   (make-vect 0.0 0.0)
+   (make-vect 0.65 0.35)
+   (make-vect 0.35 0.65)))
+
+(define (beside painter1 painter2)
+  (let ((split-point (make-vect 0.5 0.0)))
+    (let ((paint-left
+	   (transform-painter painter1
+			      (make-vect 0.0 0.0)
+			      split-point
+			      (make-vect 0.0 1.0)))
+	  (paint-right
+	   (transform-painter painter2
+			      split-point
+			      (make-vect 1.0 0.0)
+			      (make-vect 0.5 1.0))))
+      (lambda (frame)
+	(paint-left frame)
+	(paint-right frame)))))
+		    
+
+;; ---- Exercise 2.50
+(define (flip-horiz painter)
+  (transform-painter
+   painter
+   (make-vect 1.0 0.0)
+   (make-vect 0.0 0.0)
+   (make-vect 1.0 1.0)))
+
+;; We have two ways to define these procedures
+(define rotate180 (repeated rotate90 2))
+(define (rotate180 painter)
+  (transform-painter
+   painter
+   (make-vect 1.0 1.0)
+   (make-vect 0.0 1.0)
+   (make-vect 1.0 0.0)))
+
+(define rotate270 (repeated rotate90 3))
+(define (rotate270 painter)
+  (transform-painter
+   painter
+   (make-vect 0.0 1.0)
+   (make-vect 0.0 0.0)
+   (make-vect 1.0 1.0)))
+
+;; ---- Exercise 2.51
+(define (below painter1 painter2)
+  (let ((split-point (make-vect 0.0 0.5)))
+    (let ((paint-below
+	   (transform-painter painter1
+			      (make-vect 0.0 0.0)
+			      (make-vect 1.0 0.0)
+			      split-point))
+	  (paint-above
+	   (transform-painter painter2
+			      split-point
+			      (make-vect 1.0 0.5)
+			      (make-vect 0.0 1.0))))
+      (lambda (frame)
+	(paint-below frame)
+	(paint-above frame)))))
+
+(define (below painter1 painter2)
+  (rotate90
+   (beside (rotate270 painter1)
+	   (rotate270 painter2))))
+
+
+(define wave2 (beside wave (flip-vert wave)))
+(define wave4 (below wave2 wave2))
+(define wave4 (filpped-pairs wave))
+
+;; ---- Exercise 2.52
+(define wave-new
+  (let ((a (make-vect 0.00 0.64))
+	(b (make-vect 0.14 0.40))
+	(c (make-vect 0.30 0.60))
+	(d (make-vect 0.34 0.50))
+	(e (make-vect 0.24 0.00))
+	(f (make-vect 0.40 0.00))
+	(g (make-vect 0.50 0.30))
+	(h (make-vect 0.60 0.00))
+	(i (make-vect 0.74 0.00))
+	(j (make-vect 0.60 0.46))
+	(k (make-vect 1.00 0.16))
+	(l (make-vect 1.00 0.36))
+	(m (make-vect 0.74 0.64))
+	(n (make-vect 0.60 0.66))
+	(o (make-vect 0.64 0.84))
+	(p (make-vect 0.60 1.00))
+	(q (make-vect 0.40 1.00))
+	(r (make-vect 0.36 0.84))
+	(s (make-vect 0.40 0.64))
+	(t (make-vect 0.30 0.64))
+	(u (make-vect 0.14 0.60))
+	(v (make-vect 0.00 0.84))
+	(w (make-vect 0.44 0.76))
+	(x (make-vect 0.47 0.74))
+	(y (make-vect 0.50 0.74))
+	(z (make-vect 0.54 0.76)))
+    (segments->painter
+     (list (make-segment a b)
+	   (make-segment b c)
+	   (make-segment c d)
+	   (make-segment d e)
+	   (make-segment f g)
+	   (make-segment g h)
+	   (make-segment i j)
+	   (make-segment j k)
+	   (make-segment l m)
+	   (make-segment m n)
+	   (make-segment n o)
+	   (make-segment o p)
+	   (make-segment q r)
+	   (make-segment r s)
+	   (make-segment s t)
+	   (make-segment t u)
+	   (make-segment u v)
+	   (make-segment w x)
+	   (make-segment x y)
+	   (make-segment y z)))))
+
+(define (corner-split-new painter n)
+  (if (= n 0)
+      painter
+      (let ((up (up-split painter (-1+ n)))
+	    (right (right-split painter (-1+ n))))
+	(let ((top-left up)
+	      (bottom-right right )
+	      (corner (corner-split painter (-1+ n))))
+	  (beside (below painter top-left)
+		  (below bottom-right corner))))))
+
+(define (square-limit-new painter n)
+  (let ((combine4 (square-of-four flip-horiz identity
+				  rotate180 flip-vert)))
+    (combine4 (corner-split (flip-horiz painter) n))))
