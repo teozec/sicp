@@ -176,3 +176,70 @@
 	  (else (cons '* (cons numbers-product expressions))))))
 
 ;; Ideas for the future: simplify expressions like (+ 2 x (+ 4 x)) to become (+ 6 x x)
+
+
+;; ---- Exercise 2.58
+;; a.
+(define (sum? x)
+  (and (pair? x)
+       (= (length x) 3)
+       (eq? (cadr x) '+)))
+
+(define (make-sum a1 a2)
+  (cond ((=number? a1 0) a2)
+	((=number? a2 0) a1)
+	((and (number? a1) (number? a2)) (+ a1 a2))
+	(else (list a1 '+ a2))))
+
+(define (addend a) (car a))
+(define (augend a) (caddr a))
+
+(define (product? x)
+  (and (pair? x)
+       (= (length x) 3)
+       (eq? (cadr x) '*)))
+
+(define (make-product m1 m2)
+  (cond ((or (=number? m1 0) (=number? m2 0)) 0)
+	((=number? m1 1) m2)
+	((=number? m2 1) m1)
+	((and (number? m1) (number? m2)) (* m1 m2))
+	(else (list m1 '* m2))))
+
+(define (multiplier p) (car p))
+(define (multiplicand p) (caddr p))
+
+
+;; b.
+(define (sum? a)
+  (not (not (memq '+ a))))
+
+(define (product? a)
+  (and (not (sum? a))
+       (not (not (memq '* a)))))
+
+(define (up-to item l)
+  (define (iter acc remaining)
+    (if (or (null? remaining)
+	    (eq? item (car remaining)))
+	acc
+	(iter (append acc (list (car remaining)))
+	      (cdr remaining))))
+  (iter '() l))
+
+(define (extract-from-parens expr)
+  (if (null? (cdr expr))
+      (car expr)
+      expr))
+
+(define (addend s)
+  (extract-from-parens (up-to '+ s)))
+
+(define (augend s)
+  (extract-from-parens (cdr (memq '+ s))))
+
+(define (multiplier p)
+  (extract-from-parens (up-to '* p)))
+
+(define (multiplicand p)
+  (extract-from-parens (cdr (memq '* p))))
