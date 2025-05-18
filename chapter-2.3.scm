@@ -243,3 +243,58 @@
 
 (define (multiplicand p)
   (extract-from-parens (cdr (memq '* p))))
+
+
+;; Section 2.2.3
+
+;; Sets as unordered lists
+
+;; T(n) = \Theta(n)
+(define (element-of-set? x set)
+  (cond ((null? set) false)
+	((equal? x (car set)) true)
+	(else (element-of-set? x (cdr set)))))
+
+;; T(n) = \Theta(n)
+(define (adjoin-set x set)
+  (if (element-of-set? x set)
+      set
+      (cons x set)))
+
+;; T(n, m) = \Theta(nm) => if the size is the same, T(n) = T(n^2)
+(define (intersection-set set1 set2)
+  (cond ((or (null? set1) (null? set2)) '())
+	((element-of-set? (car set1) set2)
+	 (cons (car set1)
+	       (intersection-set (cdr set1) set2)))
+	(else (intersection-set (cdr set1) set2))))
+
+;; ---- Exercise 2.59
+;; T(n, m) = \Theta(nm)
+(define (union-set set1 set2)
+  (cond ((null? set1) set2)
+	((null? set2) set1)
+	((element-of-set? (car set1) set2)
+	 (union-set (cdr set1) set2))
+	(else (cons (car set1)
+		    (union-set (cdr set1) set2)))))
+
+;; ---- Exercise 2.60
+;; element-of-set remains the same as before. T(n) = \Theta(n), like before.
+
+;; T(n) = \Theta(1), constant while before it was linear.
+(define (adjoin-set x set)
+  (cons x set))
+
+;; T(n, m) = \Theta(n + m) => if the size is the same, T(n) = \Theta(n), linear instead of quadratic.
+(define (union-set set1 set2)
+  (append set1 set2))
+
+;; intersection-of-sets can be defined like before. T(n, m) = \Theta(nm).
+
+;; From a simple order-of-growth comparison, this representation seems way better than the previous one.
+;; However, two considerations are needed. First of all, the parameters n and m are not the number of elements in the set,
+;; but the number of items stored in the list, some of which may be repeated, thus they are always >= than the n and m from the previous representation.
+;; In addition, this representation potentially needs more memory, since it keeps redundant information instead of discarding it when building new sets.
+;; Thus, I would consider it in an application which performs intersections much more often than unions, since unions may create sets with many duplicates.
+;; I would also consider it if I need to adjoin elements to set much more often than I need to retrieve them or check if they are in the set.
