@@ -298,3 +298,49 @@
 ;; In addition, this representation potentially needs more memory, since it keeps redundant information instead of discarding it when building new sets.
 ;; Thus, I would consider it in an application which performs intersections much more often than unions, since unions may create sets with many duplicates.
 ;; I would also consider it if I need to adjoin elements to set much more often than I need to retrieve them or check if they are in the set.
+
+;; Sets as ordered lists
+;; T(n) = \Theta(n) but on average halves the steps of the unordered implementation.
+(define (element-of-set? x set)
+  (cond ((null? set) false)
+	((= x (car set)) true)
+	((< x (car set)) false)
+	(else 
+	 (element-of-set? x (cdr set)))))
+		     
+;; T(n, m) = \Theta(n + m)
+(define (intersection-set set1 set2)
+  (if (or (null? set1) (null? set2))
+      '()
+      (let ((x1 (car set1))
+	    (x2 (car set2)))
+	(cond ((= x1 x2)
+	       (cons x1 (intersection-set (cdr set1) (cdr set2))))
+	      ((< x1 x2)
+	       (intersection-set (cdr set1) set2))
+	      ((< x2 x1)
+	       (intersection-set set1 (cdr set2)))))))
+
+;; ---- Exercise 2.62
+;; If x is less than the firse element of the set, we append it straight away, thus on average we perform half of the steps.
+(define (adjoin-set x set)
+  (cond ((null? set) (list x))
+	((= x (car set)) set)
+	((< x (car set)) (cons x set))
+	((> x (car set))
+	 (cons (car set)
+	       (adjoin-set x (cdr set))))))
+
+;; ---- Exercise 2.63
+(define (union-set set1 set2)
+  (cond ((null? set1) set2)
+	((null? set2) set1)
+	((let ((x1 (car set1))
+	       (x2 (car set2)))
+	   (cond ((= x1 x2)
+		  (cons x1 (union-set (cdr set1) (cdr set2))))
+		 ((< x1 x2)
+		  (cons x1 (union-set (cdr set1) set2)))
+		 ((< x2 x1)
+		  (cons x2 (union-set set1 (cdr set2)))))))))
+	 
