@@ -535,3 +535,39 @@
    (intersection-set-ordered-list
     (tree->list-2 tree1)
     (tree->list-2 tree2))))
+
+;; Sets and information retrieval
+;; Data base represented by an unordered list
+(define (lookup given-key set-of-records)
+  (cond ((null? set-of-records) false)
+	((equal? given-key (key (car set-of-records)))
+	 (car set-of-records))
+	(else (lookup given-key (cdr set-of-records)))))
+
+;; ---- Exercise 2.66
+;; Data base represented by a binary tree
+(define (lookup given-key set-of-records)
+  (if (null? set-of-records)
+      false
+      (let ((current-entry (entry set-of-records)))
+	(let ((current-key (key current-entry)))
+	  (cond ((= given-key current-key) current-entry)
+		((< given-key current-key)
+		 (lookup given-key
+			 (left-branch set-of-records)))
+		((> given-key current-key)
+		 (lookup given-key
+			 (right-branch set-of-records))))))))
+
+(define key car)
+(define tree '((4 d) ((2 b) ((1 a) () ()) ((3 c) () ())) ((6 f) ((5 e) () ()) ((7 g) () ((8 h) () ())))))
+
+(lookup 1 tree) ; (1 a)
+(lookup 2 tree) ; (2 b)
+(lookup 3 tree) ; (3 c)
+(lookup 4 tree) ; (4 d)
+(lookup 5 tree) ; (5 e)
+(lookup 6 tree) ; (6 f)
+(lookup 7 tree) ; (7 g)
+(lookup 8 tree) ; (8 h)
+(lookup 9 tree) ; #f
