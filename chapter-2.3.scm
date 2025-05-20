@@ -344,3 +344,194 @@
 		 ((< x2 x1)
 		  (cons x2 (union-set set1 (cdr set2)))))))))
 	 
+;; Sets as binary trees
+(define (entry tree) (car tree))
+(define (left-branch tree) (cadr tree))
+(define (right-branch tree) (caddr tree))
+(define (make-tree entry left right)
+  (list entry left right))
+
+(define (element-of-set x set)
+  (cond ((null? set) false)
+	((= x (entry set)) true)
+	((< x (entry set))
+	 (element-of-set x (left-branch set)))
+	((> x (entry set))
+	 (element-of-set x (rihgt-branch set)))))
+
+(define (adjoin-set x set)
+  (cond ((null? set) (make-tree x '() '()))
+	((= x (entry set)) set)
+	((< x (entry set))
+	 (make-tree (entry set)
+		    (adjoin-set x (left-branch set))
+		    (right-branch set)))
+	((> x (entry set))
+	 (make-tree (entry set)
+		    (left-branch set)
+		    (adjoin-set x (right-branch set))))))
+	    
+	    
+;; ---- Exercise 2.63
+(define (tree->list-1 tree)
+  (if (null? tree)
+      '()
+      (append (tree->list-1 (left-branch tree))
+	      (cons (entry tree)
+		    (tree->list-1 (right-branch tree))))))
+
+(define (tree->list-2 tree)
+  (define (copy-to-list tree result-list)
+    (if (null? tree)
+	result-list
+	(copy-to-list (left-branch tree)
+		      (cons (entry tree)
+			    (copy-to-list (right-branch tree)
+					  result-list)))))
+  (copy-to-list tree '()))
+			    
+		     
+(define tree1
+  '(7 (3 (1 () ())
+	 (5 () ()))
+      (9 ()
+	 (11 () ()))))
+
+(define tree2
+  '(3 (1 () ())
+      (7 (5 () ())
+	 (9 ()
+	    (11 () ())))))
+
+(define tree3
+  '(5 (3 (1 () ())
+	 ())
+      (9 (7 () ())
+	 (11 () ()))))
+
+;; The two procedures produce the same output for all trees.
+;; They traverse the tree the same number of times.
+;; However, procedure 1 calls append, which is \Theta(n).
+
+;; Let's assume T_cons(n) + T_null?(n) = c, and T_append(n)=an+b.
+;; Let's also assume, for simplicity, that T_1(1) = c, and T_append(1) = a+b
+;; Then, for proocedure 1, assuming that each branch has n/2 nodes:
+;; T_1(n) = T_null?(n) + T_cons(n) + 2T_1(n/2) + T_append(n) =
+;;        = 2T_1(n/2) + T_append(n) + c
+;;        = 4T_1(n/4) + T_append(n) + 2T_append(n/2) + 3c =
+;;        = ... =
+;;        = cn + \Sum_{i=0}^{lg_2(n)} 2^i T_append(n / 2^i) + (n-1)c =
+;;        = 2cn + \Sum_{i=0}^{lg_2(n)} (2^i a n/2^i + b) - c =
+;;        = 2cn + \Sum_{i=0}^{lg_2(n)} (an+b) -c =
+;;        = 2cn + lg_2(n) an + lg_2(n) b - c =
+;;        = \Theta(n lg(n))
+
+;; On the other hand, procedure 2 does not call append.
+;; T_2(n) = T_null?(n) + T_cons(n) + 2T_2(n/2) =
+;;        = 2T_2(n/2) + c =
+;;        = 4T_2(n/4) + 3c =
+;;        = ... =
+;;        = nc + (n-1)c =
+;;        = 2nc - n =
+;;        = \Theta(n)
+
+;; ---- Exercise 2.64
+(define (list->tree elements)
+  (car (partial-tree elements (length elements))))
+
+(define (partial-tree elements n)
+  (if (= n 0)
+      (cons '() elements)
+      (let ((left-size (quotient (-1+ n) 2)))
+	(let ((left-result (partial-tree elements left-size)))
+	  (let ((left-tree (car left-result))
+		(non-left-elements (cdr left-result))
+		(right-size (- n (1+ left-size))))
+	    (let ((this-entry (car non-left-elements))
+		  (right-result (partial-tree (cdr non-left-elements)
+					      right-size)))
+	      (let ((right-tree (car right-result))
+		    (remaining-elements (cdr right-result)))
+		(cons (make-tree this-entry left-tree right-tree)
+		      remaining-elements))))))))
+
+;; a.
+
+;; Let us explain how partial-tree works distinguishing recursion step and base case.
+;; In the recursive case, let's first assume that if elements has length l and m < n, (partial-tree elements m) correctly produces a list
+;; whose car is the tree representation of the first m elements, and whose cdr is the list of remaining l-m elements.
+;; The procedure (partial-tree elements n) then conceptually divides the list of elements in four parts:
+;; - left: the first a = floor((n-1)/2) elements;
+;; - entry: the a+1 th element;
+;; - right: the subsequent n-(a+1) elements;
+;; - rest: the remaining l-n elements.
+;; The elements in left are all < key, while the elements in right and rest are > key.
+;; partial-tree is called on the list of elements with a as second argument, thus, since a<n, the recursive call produces a list left-result:
+;; (car left-result) is a balanced tree of elements < key, i.e. a left branch for the tree having entry as entry.
+;; (cdr left-result) is the list of remaining l-a elements. 
+;; The car of (cdr left-result) is the smallest of the remaining elements: i.e., entry.
+;; The cdr of (cdr left-result) is the list of the elements greater than entry. The procedure applies partial-tree to it, with n-(a+1) as second argument.
+;; This call produces a list whose car is a right-branch for the key contianing n-(a+1) elements, and the cdr is the list of the remaining l-n elements.
+;; Finally, the procedure makes a tree from entry, left-branch and right-branch, and returns a list of this tree and the remaining elements.
+;; The recursive case is thus explained.
+
+;; The base case is when n = 0. In this case, the procedure returns a list of '() and the remaining elements.
+;; '() is a balanced tree containing the first 0 elements of the list, thus the result satisfies the requirements.
+
+;; Having prooved that partial-tree works as expected, we can see that list->tree produces the tree we desire since it calls partial-tree with the full length of the list as second argument,
+;; thus obtaining a list of a tree with all the original elements and an empty list, and it returns the aforementioned tree.
+
+(list->tree '(1 3 5 7 9 11))
+'(5 (1 ()
+       (3 () ()))
+    (9 (7 () ())
+       (11 () ())))
+
+;; b.
+;; I tried solving the recurrent equation, but I found it a bit too confusing. Therefore, I will make a (hopefully) educated guess. 
+;; At each step, let's call l the length of the list of elements, and n the number of elements to put in the tree.
+;; At each step, we are splitting the problem in two subproblems:
+;; - the first one leaves l unchanged, and halves n.
+;; - the second one maps (approximately) l to l-n/2, and halves n.
+;; We can see that the elements of the list that exceed n are not considered in the computation, as they are simly cons-ed after the tree.
+;; Furthermore, in the first step l = n.
+;; Therefore, we can argue that the two subproblems effectively halve the original problem.
+;; Since at each step we are generating two subproblems each operating on n/2, the number of steps is \Theta(n).
+
+;; ---- Exercise 2.65
+;; Since we have \Theta(n) functions to convert trees to ordered lists and viceversa, and \Theta(n) functions to calculate unions and intersections of ordered lists, we can combine them.
+(define (union-set-ordered-list set1 set2)
+  (cond ((null? set1) set2)
+	((null? set2) set1)
+	((let ((x1 (car set1))
+	       (x2 (car set2)))
+	   (cond ((= x1 x2)
+		  (cons x1 (union-set-ordered-list (cdr set1) (cdr set2))))
+		 ((< x1 x2)
+		  (cons x1 (union-set-ordered-list (cdr set1) set2)))
+		 ((< x2 x1)
+		  (cons x2 (union-set-ordered-list set1 (cdr set2)))))))))
+
+(define (union-set tree1 tree2)
+  (list->tree
+   (union-set-ordered-list
+    (tree->list-2 tree1)
+    (tree->list-2 tree2))))
+
+(define (intersection-set-ordered-list set1 set2)
+  (if (or (null? set1) (null? set2))
+      '()
+      (let ((x1 (car set1))
+	    (x2 (car set2)))
+	(cond ((= x1 x2)
+	       (cons x1 (intersection-set-ordered-list (cdr set1) (cdr set2))))
+	      ((< x1 x2)
+	       (intersection-set-ordered-list (cdr set1) set2))
+	      ((< x2 x1)
+	       (intersection-set-ordered-list set1 (cdr set2)))))))
+
+(define (intersection-set tree1 tree2)
+  (list->tree
+   (intersection-set-ordered-list
+    (tree->list-2 tree1)
+    (tree->list-2 tree2))))
