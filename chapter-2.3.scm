@@ -571,3 +571,199 @@
 (lookup 7 tree) ; (7 g)
 (lookup 8 tree) ; (8 h)
 (lookup 9 tree) ; #f
+
+;; Section 2.3.4
+(define (make-leaf symbol weight)
+  (list 'leaf symbol weight))
+
+(define (leaf? object)
+  (eq? (car object) 'leaf))
+
+(define (symbol-leaf x) (cadr x))
+
+(define (weight-leaf x) (caddr x))
+
+(define (make-code-tree left right)
+  (list left
+	right
+	(append (symbols left) (symbols right))
+	(+ (weight left) (weight right))))
+
+(define (left-branch tree) (car tree))
+(define (right-branch tree) (cadr tree))
+
+(define (symbols tree)
+  (if (leaf? tree)
+      (list (symbol-leaf tree))
+      (caddr tree)))
+
+(define (weight tree)
+  (if (leaf? tree)
+      (weight-leaf tree)
+      (cadddr tree)))
+
+(define (decode bits tree)
+  (define (decode-1 bits current-branch)
+    (if (null? bits)
+	'()
+	(let ((next-branch
+	       (choose-branch (car bits) current-branch)))
+	  (if (leaf? next-branch)
+	      (cons (symbol-leaf next-branch)
+		    (decode-1 (cdr bits) tree))
+	      (decode-1 (cdr bits) next-branch)))))
+  (decode-1 bits tree))
+
+(define (choose-branch bit branch)
+  (cond ((= bit 0) (left-branch branch))
+	((= bit 1) (right-branch branch))
+	(else (error "bad bit -- CHOOSE-BRANCH" bit))))
+
+(define (adjoin-set x set)
+  (cond ((null? set) (list x))
+	((< (weight x) (weight (car set))) (cons x set))
+	(else (cons (car set)
+		    (adjoin-set x (cdr set))))))
+
+(define (make-leaf-set pairs)
+  (if (null? pairs)
+      '()
+      (let ((pair (car pairs)))
+	(adjoin-set (make-leaf (car pair)   ; symbol
+			       (cadr pair)) ; frequency
+		    (make-leaf-set (cdr pairs))))))
+
+;; ---- Exercise 2.67
+(define sample-tree
+  (make-code-tree
+   (make-leaf 'a 4)
+   (make-code-tree
+    (make-leaf 'b 2)
+    (make-code-tree
+     (make-leaf 'd 1)
+     (make-leaf 'c 1)))))
+
+(define sample-message '(0 1 1 0 0 1 0 1 0 1 1 1 0))
+(decode sample-message sample-tree) ; adabbca
+
+;; ---- Exercise 2.68
+(define (encode message tree)
+  (if (null? message)
+      '()
+      (append (encode-symbol (car message) tree)
+	      (encode (cdr message) tree))))
+
+(define (encode-symbol symbol tree)
+  (cond ((and (leaf? tree) (eq? (symbol-leaf tree) symbol))'())
+	((memq symbol (symbols (left-branch tree)))
+	 (cons 0 (encode-symbol symbol (left-branch tree))))
+	((memq symbol (symbols (right-branch tree)))
+	 (cons 1 (encode-symbol symbol (right-branch tree))))
+	(else (error "ENCODE-SYMBOL 1: symbol is not part of tree" symbol tree))))
+
+;; ---- Exercise 2.69
+(define (generate-huffman-tree pairs)
+  (successive-merge (make-leaf-set pairs)))
+
+;; tree is a list of at least two elements (leaves or subtrees), sorted from smallest-weighted to gratest-weighted.
+;; Therefore, we merge them to produce a new tree.
+;; If there is any other element in the list, we adjoin this tree to the rest of the list, where it will be placed according to its weight.
+;; Otherwise, we are done and can return the tree.
+(define (successive-merge tree)
+  (let ((current-tree (make-code-tree (cadr tree) (car tree)))
+	(remaining (cddr tree)))
+    (if (null? remaining)
+	current-tree
+	(successive-merge (adjoin-set current-tree remaining)))))
+
+
+;; ---- Exercise 2.70
+(define rock-song-alphabet
+  '((a 2) (boom 1) (get 2) (job 2)
+    (na 16) (sha 3) (yip 9) (wah 1)))
+
+(define rock-song-tree (generate-huffman-tree rock-song-alphabet))
+
+(define rock-song
+  '(get a job
+	sha na na na na na na na na
+	get a job
+	sha na na na na na na na na
+	wah yip yip yip yip yip yip yip yip yip
+	sha boom))
+
+(define encoded-rock-song (encode rock-song rock-song-tree))
+	
+(length encoded-rock-song) ;; 84 bits are required to encode the message.
+;; Using fixed-length encoding, since we have 8 symbols in the alphabet, we need lg_2(8) = 3 bits pr symbol.
+(* 3 (length rock-song)) ;; 108 bits are required with fixed-length encoding.
+
+;; ---- Exercise 2.71
+;; At each node, the right branch is a single leaf containing the most frequent element of the subtree, the right branch is the rest of the subtree.
+;; Nodes are represented by * (with the total weight of the subtree on the left), leaves by (<weight>).
+;; Left and right branches are swapped for ease of 
+
+;; n = 5
+;; (16) -- *  31 
+;;         |
+;;  (8) -- *  15 
+;;         |
+;;  (4) -- *   7
+;;         |
+;;  (2) -- *   3
+;;         |
+;;        (1)
+
+;; n = 10
+;; (512) -- * 1023 
+;;          |
+;; (256) -- *  511 
+;;          |
+;; (128) -- *  255 
+;;          |
+;;  (64) -- *  127 
+;;          |
+;;  (32) -- *   63 
+;;          |
+;;  (16) -- *   31 
+;;          |
+;;   (8) -- *   15 
+;;          |
+;;   (4) -- *    7 
+;;          |
+;;   (2) -- *    3 
+;;          |
+;;         (1)
+
+;; The most frequent symbol requires 1 bit, the least frequent n-1 bits.
+
+;; ---- Exercise 2.72
+;; Let n be the number of nodes in the subtree, and f(n) be the number of nodes in the next subtree where the symbol leaf is.
+;; Then, the procedure needs to perform some steps of constant time, such as the leaf? check and the cons, and some steps depending on n and f(n).
+;; T(n) = T_l(n) + dT_r(n) + T(f(n)) + k
+;; where d is 0 if the symbol is in the left branch and 1 if it is in the right one.
+;; When the tree is actually a leaf, n = 0 and T(0) = c.
+
+;; The frequencies described in the previous exercise give the best and worst case.
+;; In the best case, we encode the most frequent symbol, which is the only leaf of the left branch.
+;; Therefore, d is 0 and T_l(n)=T_l(1) is a constant a. f(n) is 0 because the next subtree is the leaf itself.
+;; T_best(n) = a + c + k = \Theta(1).
+
+;; In the worst case, we encoded the least frequent symbol, which is always in the right branch.
+;; Therefore, d is 1 and since the left branch contains only one leaf T_r(n) = c(n) and f(n) = n-1.
+;; T_worst(n) = a + bn + T(n-1) + k
+;;            = a + bn + (a + b(n-1) + T(n-2) + k) + k
+;;            = 2a + b n(n-1) + T(n-2) + 2k = ... =
+;;            = na + b \sum_{i=1}n i + c + nk =
+;;            = na + b n(n+1)/2 + c + nk =
+;;            = \Theta(n^2).
+
+;; The "average" case is the case where we have 2^m symbols having all the same frequency.
+;; In this case, the right and left branches have n/2 leaves, and d is 1 half of the times, 0 the remaining times (on average, it is 1/2).
+;; Furthermore, f(n) = n/2.
+;; T_average(n) = a + bn/2 + 1/2b n/2 + T(n/2) + k =
+;;              = a + 3/2 b n/2 + T(n/2) + k =
+;;              = a + 3/2 b n/2 + (a + 3/2 b n/4 + T(n/4) + k) + k =
+;;              = 2a + 3/2 b n (1/2 + 1/4) + T(n/4) + 2k = ... =
+;;              = na + 3/2 b n \Sum_{i=1}{lg_2(n)} 2^{-i} + c + nk
+;; The sum is between 1 and 2, therefore T_average(n) = \Theta(n).
