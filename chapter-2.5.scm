@@ -175,3 +175,80 @@
   ((get 'make-from-mag-ang 'complex) m a))
 				    
 
+;; ---- Exercise 2.77
+(define (install-complex-accessors)
+  (put 'real-part '(complex) real-part)
+  (put 'imag-part '(complex) imag-part)
+  (put 'magnitude '(complex) magnitude)
+  (put 'angle '(complex) angle)
+  'done)
+
+;; This works because we have already defined the four generic procedures, which currently dispatch on the two representations, rectangular and polar.
+;; Adding support for the complex type means that apply-generic will first strip 'complex, and call again the operation on the internal object.
+;; Afterwards, apply-generic strips the 'rectangular or 'polar symbol and dispatches to the correct procedure depending on the representation.
+;; For example:
+;; (magnitude '(complex rectangular 3 . 4))
+;; (apply-generic 'magnitude '(complex rectangular 3 . 4)) ; dispatch to the generic magnitude procedure
+;; (magnitude '(rectangular 3 . 4))
+;; (apply-generic 'magnitude '(rectangular 3 . 4))
+;; (<internal-rectangular-package-procedure> '(3 . 4)) ; dispatch to the internal procedure installed by rectangular package
+
+;; ---- Exercise 2.78
+(define (attach-tag type-tag contents)
+  (if (eq? type-tag 'scheme-number)
+      contents
+      (cons type-tag contents)))
+
+(define (type-tag datum)
+  (cond ((pair? datum) (car datum))
+	((number? datum) 'scheme-number)
+	(else (error "Bad tagged datum -- TYPE-TAG" datum))))
+
+(define (contents datum)
+  (cond ((pair? datum) (cad datum))
+	((number? datum) datum)
+	(else (error "Bad tagged datum -- CONTENTS" datum))))
+
+;; ---- Exercise 2.79
+(define (equ? x y)
+  (apply-generic 'equ? x y))
+
+(define (install-scheme-number-equ)
+  (put 'equ? '(scheme-number scheme-number)
+       (lambda (x y) (= x y)))
+  'done)
+
+(define (install-rational-equ)
+  (define (numer x) (car x))
+  (define (denom x) (cdr x))
+  (put 'equ? '(rational rational)
+       (lambda (x y) (and (= (numer x) (numer y))
+			  (= (denom x) (denom y)))))
+  'done)
+
+(define (install-complex-equ)
+  (put 'equ? '(complex complex)
+       (lambda (z1 z2) (and (= (real-part z1) (real-part z2))
+			    (= (imag-part z1) (imag-part z2)))))
+  'done)
+
+
+;; ---- Exercise 2.80
+(define (=zero? x)
+  (apply-generic '=zero? x))
+
+(define (install-scheme-number-=zero)
+  (put '=zero? '(scheme-number)
+       (lambda (x) (= x 0)))
+  'done)
+
+(define (install-rational-=zero)
+  (define (numer x) (car x))
+  (put '=zero? '(rational)
+       (lambda (x) (= (numer x) 0)))
+  'done)
+
+(define (install-complex-=zero)
+  (put '=zero? '(complex)
+       (lambda (z) (= (magnitude z) 0)))
+  'done)
