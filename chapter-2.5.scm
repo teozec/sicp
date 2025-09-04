@@ -1,3 +1,4 @@
+(load "chapter-2.4.scm")
 
 ;; Section 2.5.1
 (define (apply-generic op . args)
@@ -205,7 +206,7 @@
 	(else (error "Bad tagged datum -- TYPE-TAG" datum))))
 
 (define (contents datum)
-  (cond ((pair? datum) (cad datum))
+  (cond ((pair? datum) (cdr datum))
 	((number? datum) datum)
 	(else (error "Bad tagged datum -- CONTENTS" datum))))
 
@@ -252,3 +253,236 @@
   (put '=zero? '(complex)
        (lambda (z) (= (magnitude z) 0)))
   'done)
+
+;; Section 2.5.2
+(define (install-cross-complex-scheme-number-package)
+  (define (add-complex-to-scheme-number z x)
+    (make-from-real-imag (+ (real-part z) x)
+			 (imag-part z)))
+  (put 'add '(complex scheme-number)
+       (lambda (z x) (tag (add-complex-to-scheme-number z x)))))
+ 
+
+(define coercion-table (make-table))
+(define get-coercion (coercion-table 'lookup-proc))
+(define put-coercion (coercion-table 'insert-proc!))
+
+(define (scheme-number->complex n)
+  (make-complex-from-real-imag (contents n) 0))
+
+(put-coercion 'scheme-number 'complex scheme-number->complex)
+
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+	  (apply proc (map contents args))
+	  (if (= (length args) 2)
+		 (let ((type1 (car type-tags))
+		       (type2 (cadr type-tags))
+		       (a1 (car args))
+		       (a2 (cadr args)))
+		   (let ((t1->t2 (get-coercion type1 type2))
+			 (t2->t1 (get-coercion type2 type1)))
+		     (cond (t1->t2
+			    (apply-generic op (t1->t2 a1) a2))
+			   (t2->t1
+			    (apply-generic op a1 (t2->t1 a2)))
+			   (else
+			    (error "No method for these types"
+				   (list op type-tags))))))
+	      (error "No method for these types"
+		     (list op type-tags)))))))
+				 
+;; ---- Exercise 2.81
+(define (exp x y) (apply-generic 'exp x y))
+
+(define (install-scheme-number-exp)
+  (put 'exp '(scheme-number scheme-number)
+       (lambda (x y) (attach-tag 'scheme-number (expt x y))))
+  'done)
+
+(define (install-identity-coercions)
+  (define (scheme-number->scheme-number n) n)
+  (define (complex->complex z) z)
+  (put-coercion 'scheme-number 'scheme-number scheme-number->scheme-number)
+  (put-coercion 'complex 'complex complex->complex)
+  'done)
+
+;; a.
+;; If these procedures are installed, using an operation that is not installed on arguments of the same type, such as (exp z1 z2) with complex z1 and z2,
+;; reuslts in an infinite recursion, since the apply-generic will not find the procedure but will find the coercions, therefore it recursively apply itself on the same arguments it has been called with.
+
+;; b.
+;; The procedure is working only if no identity coercions are installed: in that case, neither the generic procedure nor the coercions are found, and the procedure fails as it should.
+;; If the identity coercions are installed, on the other hand, the procedure will enter an infinite loop.
+;; Therefore, we can say that the procedure works if the coercions are configured correctly, but it can be made more robust.
+
+;; c.
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+	  (apply proc (map contents args))
+	  (if (= (length args) 2)
+		 (let ((type1 (car type-tags))
+		       (type2 (cadr type-tags))
+		       (a1 (car args))
+		       (a2 (cadr args)))
+		   (let ((t1->t2 (get-coercion type1 type2))
+			 (t2->t1 (get-coercion type2 type1)))
+		     (cond ((eq? type1 type2)
+			    (error "No method for these types"
+				   (list op type-tags)))
+			   (t1->t2
+			    (apply-generic op (t1->t2 a1) a2))
+			   (t2->t1
+			    (apply-generic op a1 (t2->t1 a2)))
+			   (else
+			    (error "No method for these types"
+				   (list op type-tags))))))
+	      (error "No method for these types"
+		     (list op type-tags)))))))
+
+
+;; ---- Exercise 2.82
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+
+    (define (get-coerced-args)
+      (define (get-coercions remaining-types)
+	(if (null? remaining-types)
+	    false
+	    (let ((to-type (car remaining-types)))
+	      (let ((coercions
+		     (map (lambda (type)
+			    (if (eq? type to-type)
+				(lambda (x) x)
+				(get-coercion type to-type)))
+			  type-tags)))
+		(if (not (memq false coercions))
+		    coercions
+		    (get-coercions (cdr remaining-types)))))))
+      
+      (let ((coercions (get-coercions type-tags)))
+	(if coercions
+	    (fold-right (lambda (coercion arg previous) (cons (coercion arg) previous)) '() coercions args)
+	    false)))
+	
+    (let ((proc (get op type-tags)))
+      (if proc
+	  (apply proc (map contents args))
+	  (let ((coerced-args (get-coerced-args)))
+	    (if (and coerced-args (not (equal? args coerced-args)))
+		(apply apply-generic (cons op coerced-args))
+		(error "No method for these types"
+		       (list op type-tags))))))))
+
+;; This procedure is not suitable in cases where, for example, type A can be coerced to B and both types A and B can be coerced to C, and a mixed operation A C C exists while C C C does not.
+;; For example, suppose that the operation of ternary sum is defined for (scheme-number complex complex) but not for (complex complex complex).
+;; Suppose that we call the procedure with (scheme-num rational complex).
+;; The only possible coerced and not coerced combinations are
+;; - (scheme-num rational complex)
+;; - (scheme-num complex complex)
+;; - (rational rational complex)
+;; - (rational complex complex)
+;; - (complex rational complex)
+;; - (complex complex complex)
+;; If we tried all of them, we would be able to evaluate the expression using the (scheme-number complex complex) generic operation.
+;; However, our procedure only tries the (complex complex complex) combination, which is not available.
+
+
+;; ---- Exercise 2.83
+(define (install-real-package)
+  (define (tag x)
+    (attach-tag 'real x))
+  (put 'add '(real real)
+       (lambda (x y) (tag (+ x y))))
+  (put 'sub '(real real)
+       (lambda (x y) (tag (- x y))))
+  (put 'mul '(real real)
+       (lambda (x y) (tag (* x y))))
+  (put 'div '(real real)
+       (lambda (x y) (tag (/ x y))))
+  (put 'make 'real
+       (lambda (x) (tag x)))
+  'done)
+
+(define (make-real n)
+  ((get 'make 'real) n))
+
+(define (install-integer-package)
+  (define (tag x)
+    (attach-tag 'integer x))
+  (put 'add '(integer integer)
+       (lambda (x y) (tag (+ x y))))
+  (put 'sub '(integer integer)
+       (lambda (x y) (tag (- x y))))
+  (put 'mul '(integer integer)
+       (lambda (x y) (tag (* x y))))
+  (put 'div '(integer integer)
+       (lambda (x y) (tag (/ x y))))
+  (put 'make 'integer
+       (lambda (x) (tag (inexact->exact (round x)))))
+  'done)
+
+(define (make-integer n)
+  ((get 'make 'integer) n))
+
+
+(define (raise x)
+  (apply-generic 'raise x))
+
+(define (make-real x) (attach-tag 'real x))
+
+(define (install-raise)
+  (put 'raise '(integer)
+       (lambda (n)
+	 (make-rational n 1)))
+  (put 'raise '(rational)
+       (lambda (r)
+	 (make-real (/ (car r) (cdr r)))))
+  (put 'raise '(real)
+       (lambda (x)
+	 (make-complex-from-real-imag x 0)))
+  'done)
+
+; ---- Exercise 2.84
+(define (raise-up-to x type)
+  (cond
+   ((eq? (type-tag x) type) x)
+   ((get 'raise (list (type-tag x)))
+    (raise-up-to (raise x) type))
+   (else #f)))
+  
+(define (apply-generic-tower op . args)
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+	  (apply proc (map contents args))
+	  (if (= (length args) 2)
+		 (let ((type1 (car type-tags))
+		       (type2 (cadr type-tags))
+		       (a1 (car args))
+		       (a2 (cadr args)))
+		   (let ((raised1 (raise-up-to a1 type2))
+			 (raised2 (raise-up-to a2 type1)))
+		     (cond (raised1
+			    (apply-generic op raised1 a2))
+			   (raised2
+			    (apply-generic op a1 raised2))
+			   (else
+			    (error "No method for these types"
+				   (list op type-tags))))))
+	      (error "No method for these types"
+		     (list op type-tags)))))))
+
+(define (install)
+  (install-integer-package)
+  (install-real-package)
+  (install-rational-package)
+  (install-polar-package)
+  (install-rectangular-package)
+  (install-complex-package))
+
+
