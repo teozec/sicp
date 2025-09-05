@@ -233,6 +233,10 @@
 			    (= (imag-part z1) (imag-part z2)))))
   'done)
 
+(define (install-equ)
+  (install-scheme-number-equ)
+  (install-rational-equ)
+  (install-complex-equ))
 
 ;; ---- Exercise 2.80
 (define (=zero? x)
@@ -406,6 +410,8 @@
        (lambda (x y) (tag (/ x y))))
   (put 'make 'real
        (lambda (x) (tag x)))
+  (put 'equ? '(real real)
+       (lambda (x y) (= x y)))
   'done)
 
 (define (make-real n)
@@ -424,6 +430,8 @@
        (lambda (x y) (tag (/ x y))))
   (put 'make 'integer
        (lambda (x) (tag (inexact->exact (round x)))))
+  (put 'equ? '(integer integer)
+       (lambda (x y) (= x y)))
   'done)
 
 (define (make-integer n)
@@ -483,6 +491,56 @@
   (install-rational-package)
   (install-polar-package)
   (install-rectangular-package)
-  (install-complex-package))
+  (install-complex-package)
+  (install-complex-accessors)
+  (install-raise)
+  (install-equ))
 
+;; ---- Exercise 2.85
+(define (project x)
+  (apply-generic 'project x))
 
+(define (numer x) (cadr x))
+(define (denom x) (cddr x))
+
+(define (install-project)
+  (put 'project '(complex)
+       (lambda (z) (make-real (real-part z))))
+  (put 'project '(real) ; This loses accuracy, but a correct version requires a more complicated algorithm.
+       (lambda (x) (make-rational (inexact->exact (round (contents x))) 1)))
+  (put 'project '(rational)
+       (lambda (x) (make-integer (round (/ (numer x) (denom x))))))
+  'done)
+
+(define (drop x)
+  (let ((projection (get 'project (list (type-tag x)))))
+    (if projection
+	(let ((projected (projection x)))
+	  (if (equ? x (raise projected))
+	      (drop projected)
+	      x))
+	x)))
+
+(define (apply-generic-tower op . args)
+  (let ((result
+	(let ((type-tags (map type-tag args)))
+	  (let ((proc (get op type-tags)))
+	    (if proc
+		(apply proc (map contents args))
+		(if (= (length args) 2)
+		    (let ((type1 (car type-tags))
+			  (type2 (cadr type-tags))
+			  (a1 (car args))
+			  (a2 (cadr args)))
+		      (let ((raised1 (raise-up-to a1 type2))
+			    (raised2 (raise-up-to a2 type1)))
+			(cond (raised1
+			       (apply-generic op raised1 a2))
+			      (raised2
+			       (apply-generic op a1 raised2))
+			      (else
+			       (error "No method for these types"
+				      (list op type-tags))))))
+		    (error "No method for these types"
+			   (list op type-tags))))))))
+    (drop result)))
