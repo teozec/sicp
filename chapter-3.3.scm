@@ -457,3 +457,263 @@ z2 ; ((a b) a b)
 	(loop (next-element q)
 	      (append l (list (item-element q))))))
   (display (loop (front-ptr-dequeue dequeue) '())))
+
+;; Section 3.3.3
+(define (lookup key table)
+  (let ((record (assoc key (cdr table))))
+    (if record
+	(cdr record)
+	false)))
+
+(define (assoc key records)
+  (cond ((null? records) false)
+	((equal? key (caar records)) (car records))
+	(else (assoc key (cdr records)))))
+
+(define (insert! key value table)
+  (let ((record (assoc key (cdr table))))
+    (if record
+	(set-cdr! record value)
+	(set-cdr! table
+		  (cons (cons key value) (cdr table)))))
+  'ok)
+
+(define (make-table)
+  (list '*table*))
+
+(define (lookup-2 key1 key2 table)
+  (let ((subtable (assoc key1 (cdr table))))
+    (if subtable
+	(let ((record (assoc key2 (cdr subtable))))
+	  (if record
+	      (cdr record)
+	      false))
+	false)))
+
+(define (insert-2 key1 key2 value table)
+  (let ((subtable (assoc key1 (cdr table))))
+    (if subtable
+	(let ((record (assoc key2 (cdr subtable))))
+	  (if record
+	      (set-cdr! record value)
+	      (set-cdr! subtable
+			(cons (cons key2 value)
+			      (cdr subtable)))))
+	(set-cdr! table
+		  (cons (list key2
+			      (cons key2 value))
+			(cdr table)))))
+  'ok)
+
+(define (make-table)
+  (let ((local-table (list '*table*)))
+    (define (lookup key1 key2)
+      (let ((subtable (assoc key1 (cdr local-table))))
+	(if subtable
+	    (let ((record (assoc key2 (cdr subtable))))
+	      (if record
+		  (cdr record)
+		  false))
+	    false)))
+    (define (insert! key1 key2 value)
+      (let ((subtable (assoc key1 (cdr local-table))))
+	(if subtable
+	    (let ((record (assoc key2 (cdr subtable))))
+	      (if record
+		  (set-cdr! record value)
+		  (set-cdr! subtable (cons (cons key2 value)
+					   (cdr subtable)))))
+	    (set-cdr! local-table
+		      (cons (list key1
+				  (cons key2 value))
+			    (cdr local-table)))))
+      'ok)
+    (define (dispatch m)
+      (cond ((eq? m 'lookup-proc) lookup)
+	    ((eq? m 'insert-proc) insert!)
+	    (else (error "Unknown operation -- TABLE" m))))
+    dispatch))
+
+(define operation-table (make-table))
+(define get (operation-table 'lookup-proc))
+(define put (operation-table 'insert-proc))
+  
+  
+;; Exercise 3.24
+(define (make-table same-key?)
+  (define (assoc key records)
+    (cond ((null? records) false)
+	  ((same-key? key (caar records)) (car records))
+	  (else (assoc key (cdr records)))))
+
+  (let ((local-table (list '*table*)))
+    (define (lookup key1 key2)
+      (let ((subtable (assoc key1 (cdr local-table))))
+	(if subtable
+	    (let ((record (assoc key2 (cdr subtable))))
+	      (if record
+		  (cdr record)
+		  false))
+	    false)))
+
+    (define (insert! key1 key2 value)
+      (let ((subtable (assoc key1 (cdr local-table))))
+	(if subtable
+	    (let ((record (assoc key2 (cdr subtable))))
+	      (if record
+		  (set-cdr! record value)
+		  (set-cdr! subtable (cons (cons key2 value)
+					   (cdr subtable)))))
+	    (set-cdr! local-table
+		      (cons (list key1
+				  (cons key2 value))
+			    (cdr local-table)))))
+      'ok)
+
+    (define (dispatch m)
+      (cond ((eq? m 'lookup-proc) lookup)
+	    ((eq? m 'insert-proc) insert!)
+	    (else (error "Unknown operation -- TABLE" m))))
+
+    dispatch))
+
+(define (get key1 key2 table) 
+  ((table 'lookup-proc) key1 key2))
+
+(define (put! key1 key2 value table) 
+  ((table 'insert-proc) key1 key2 value))
+
+
+;; Exercise 3.25
+(define (make-table)
+  (let ((local-table (list '*table*)))
+
+    (define (lookup keys)
+      (define (iter keys table)
+	(if (null? keys)
+	    (cdr table)
+	    (let ((subtable (assoc (car keys) (cdr table))))
+	      (if subtable
+		  (iter (cdr keys) subtable)
+		  false))))
+      (iter keys local-table))
+      
+    (define (insert! keys value)
+      (define (iter keys table)
+	(if (null? keys)
+	    (set-cdr! table value)
+	    (begin
+	      (unless (pair? (cdr table)) (set-cdr! table '()))
+	      (let ((subtable (assoc (car keys) (cdr table))))
+		(if subtable
+		    (begin 
+		      (iter (cdr keys) subtable))
+		    (begin
+		      (let ((new-subtable (cons (cons (car keys) '())
+						(cdr table))))
+			(set-cdr! table new-subtable)
+			(iter (cdr keys) (car new-subtable)))))))))
+      (iter keys local-table)
+      'ok)
+     
+    (define (print)
+      (display local-table))
+
+    (define (dispatch m)
+      (cond ((eq? m 'lookup-proc) lookup)
+	    ((eq? m 'insert-proc) insert!)
+	    ((eq? m 'display-proc) (print))
+	    (else (error "Unknown operation -- TABLE" m))))
+    dispatch))
+
+(define (get keys table) 
+  ((table 'lookup-proc) keys))
+
+(define (put! keys value table) 
+  ((table 'insert-proc) keys value))
+
+;; Exercise 3.26
+
+;; Tree operations
+(define (entry tree) (car tree))
+(define (left-branch tree) (cadr tree))
+(define (right-branch tree) (cddr tree))
+(define (make-tree entry left right)
+  (cons entry (cons left right)))
+(define (set-left-branch! tree left)
+  (set-car! (cdr tree) left))
+(define (set-right-branch! tree right)
+  (set-cdr! (cdr tree) right))
+
+(define (key-entry entry) (car entry))
+(define (value-entry entry) (cdr entry))
+(define (make-entry key value) (cons key value))
+
+(define (lookup key table)
+  (define (iter subtable)
+    (if (null? subtable)
+	false
+	(let ((current-entry (entry subtable)))
+	  (let ((current-key (key-entry current-entry)))
+	    (cond ((= key current-key) (value-entry current-entry))
+		  ((< key current-key) (iter (left-branch subtable)))
+		  ((> key current-key) (iter (right-branch subtable))))))))
+  (iter (cdr table)))
+
+(define (insert! key value table)
+  (define (iter! subtable)
+    (let ((current-entry (entry subtable)))
+      (let ((current-key (key-entry current-entry)))
+	(cond ((= key current-key)
+	       (set-cdr! current-entry value))
+	      ((< key current-key)
+	       (if (null? (left-branch subtable))
+		   (set-left-branch! subtable (make-tree (make-entry key value) '() '()))
+		   (iter! (left-branch subtable))))
+	       ((> key current-key)
+		(if (null? (right-branch subtable))
+		    (set-right-branch! subtable (make-tree (make-entry key value) '() '()))
+		    (iter! (right-branch subtable))))))))
+  
+  (if (null? (cdr table))
+      (set-cdr! table (make-tree (make-entry key value) '() '()))
+      (iter! (cdr table)))
+  'ok)
+
+(define (make-table)
+  (list '*table*))
+
+;; Exercise 3.27
+(define (fib n)
+  (cond ((= n 0) 0)
+	((= n 1) 1)
+	(else (+ (fib (- n 1))
+		 (fib (- n 2))))))
+
+(define memo-fib
+  (memoize (lambda (n)
+	     (cond ((= n 0) 0)
+		   ((= n 1) 1)
+		   (else (+ (memo-fib (- n 1))
+			    (memo-fib (- n 2))))))))
+
+(define (memoize f)
+  (let ((table (make-table)))
+    (lambda (x)
+      (let ((previously-computed-result (lookup x table)))
+	(or previously-computed-result
+	    (let ((result (f x)))
+	      (insert! x result table)
+	      result))))))
+
+;; The diagram is too complicated to draw here.
+
+;; (memo-fib n) recurses n times, since (memo-fib i) gets called only the first time it is needed,
+;; and afterwards it is put in the table.
+;; If lookup and insert are O(1), memo-fib is O(n).
+;; Otherwise, I am not sure.
+
+;; (memoize fib) would not be optimized, since the recursive calls would evaluate fib,
+;; which is the standard non-memoized procedure.
+
+
