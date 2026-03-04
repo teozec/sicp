@@ -717,3 +717,109 @@ z2 ; ((a b) a b)
 ;; which is the standard non-memoized procedure.
 
 
+;; Section 3.3.4
+;; a)
+(define (half-adder a b s c)
+  (let ((d (make-wire)) (e (make-wire)))
+    (or-gate a b d)
+    (and-gate a b c)
+    (inverter c e)
+    (and-gate d e s)
+    'ok))
+
+(define (full-adder a b c-in sum c-out)
+  (let ((s (make-wire))
+	(c1 (make-wire))
+	(c2 (make-wire)))
+    (half-adder b c-in s c1)
+    (half-adder a s sum c2)
+    (or-gate c1 c2 c-out)
+    'ok))
+
+(define (inverter input output)
+  (define (invert-input)
+    (let ((new-value (logical-not (get-signal input))))
+      (after-delay inverter-delay
+		   (lambda ()
+		     (set-signal! output new-value)))))
+  (add-action! input invert-input)
+  'ok)
+
+(define (logical-not s)
+  (cond ((= s 0) 1)
+	((= s 1) 0)
+	(else (error "Invalid signal" s))))
+
+(define (and-gate a1 a2 output)
+  (define (and-action-procedure)
+    (let ((new-value (logical-and (get-signal a1) (get-signal a2))))
+      (after-delay and-gate-delay
+		   (lambda ()
+		     (set-signal! output new-value)))))
+  (add-action! a1 and-action-procedure)
+  (add-action! a2 and-action-procedure)
+  'ok)
+
+(define (logical-and a1 a2)
+  (cond ((not (valid-signal? a1))
+	 (error "Invalid signal" a1))
+	((not (valid-signal? a2))
+	 (error "Invalid signal" a2))
+	(else (and a1 a2))))
+
+(define (valid-signal? s)
+  (or (= s 0)
+      (= s 1)))
+
+;; Exercise 3.28
+(define (or-gate a1 a2 output)
+  (define (or-action-procedure)
+    (let ((new-value (logical-or (get-signal a1) (get-signal a2))))
+      (after-delay or-gate-delay
+		   (lambda ()
+		     (set-signal! output new-value)))))
+  (add-action! a1 or-action-procedure)
+  (add-action! a2 or-action-procedure)
+  'ok)
+
+(define (logical-or a1 a2)
+  (cond ((not (valid-signal? a1))
+	 (error "Invalid signal" a1))
+	((not (valid-signal? a2))
+	 (error "Invalid signal" a2))
+	(else (or a1 a2))))
+
+
+;; Exercise 3.29
+;; According to De Morgan law, (or a b) == (not (and (not a) (not b)))
+(define (compound-or-gate a1 a2 output)
+  (let ((b1 (make-wire)) (b2 (make-wire)) (c (make-wire)))
+    (inverter a1 b1)
+    (inverter a2 b2)
+    (and-gate b1 b2 c)
+    (inverter c output)))
+
+;; The delay is and-gate-delay + 2 * inverter-delay, since the signal flows in two inverters and one and.
+    
+;; Exercise 3.30
+(define (ripple-carry a-list b-list s-list c)
+    (if (null? a-list)
+	'ok
+	(let ((next-c (make-wire)))
+	  (full-adder (car a-list)
+		      (car b-list)
+		      next-c
+		      (car s-list)
+		      c)
+	  (ripple-carry (cdr a-list)
+			(cdr b-list)
+			(cdr s-list)
+			next-c))))
+			  
+;; The delay to get the full carry bit is n * full-adder-carry-delay.
+;; The full-adder-carry-delay is the delay introduced chanigng the carry in the full adder.
+;; This is the or-delay plus two times the half-adder-carry-delay.
+;; The half adder carry delay is 2 *and-delay + inverter-delay.
+;; The total delay is then n * (or-delay + 2 * (2 * and-delay + inverter-delay)).
+;; To get also the last sum bit, we need to account for the delay introduced by the or-gate in the last half adder.
+;; If it is longer than the and-delay + inverter-delay, we need to add the difference between them.
