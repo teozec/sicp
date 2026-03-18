@@ -823,3 +823,188 @@ z2 ; ((a b) a b)
 ;; The total delay is then n * (or-delay + 2 * (2 * and-delay + inverter-delay)).
 ;; To get also the last sum bit, we need to account for the delay introduced by the or-gate in the last half adder.
 ;; If it is longer than the and-delay + inverter-delay, we need to add the difference between them.
+
+;; b)
+(define (make-wire)
+  (let ((signal-value 0) (action-procedures '()))
+    (define (set-my-signal! new-value)
+      (if (not (= signal-value new-value))
+	  (begin (set! signal-value new-signal)
+		 (call-each action-procedures))
+	  'done))
+
+    (define (accept-action-procedure! proc)
+      (set! action-procedures (cons proc action-procedures))
+      (proc))
+
+    (define (dispatch m)
+      (cond ((eq? m 'get-signal) signal-value)
+	    ((eq? m 'set-signal!) set-my-signal!)
+	    ((eq? m 'add-action!) accept-action-procedure!)
+	    (else (error "Unknown operaton -- WIRE" m))))
+
+  dispatch))
+
+(define (call-each procedures)
+  (if (null? procedures)
+      'done
+      (begin
+	((car procedures))
+	(call-each (cdr procedures)))))
+
+(define (get-signal wire)
+  (wire 'get-signal))
+
+(define (set-signal! wire new-value)
+  ((wire 'set-signal!) new-value))
+
+(define (add-action! wire action-procedure)
+  ((wire 'add-action!) action-procedure))
+
+
+(define (after-delay delay action)
+  (add-to-agenda! (+ delay (current-time the-agenda))
+		  action
+		  the-agenda))
+
+(define (propagate)
+  (if (empty-agenda? the-agenda)
+      'done
+      (let ((first-item (first-agenda-item the-agenda)))
+	(first-item)
+	(remove-first-agenda-item! the-agenda)
+	(propagate))))
+
+(define (probe name wire)
+  (add-action! wire
+	       (lambda ()
+		 (newline)
+		 (display name)
+		 (display " ")
+		 (display (current-time the-agenda))
+		 (display "  New value = ")
+		 (display (get-signal wire)))))
+
+(define the-agenda (make-agenda))
+(define inverter-delay 2)
+(define and-gate-delay 3)
+(define or-gate-delay 5)
+
+(define input-1 (make-wire))
+(define input-2 (make-wire))
+(define sum (make-wire))
+(define carry (make-wire))
+
+(probe 'sum sum)
+(probe 'carry carry)
+
+(half-adder input-1 input-2 sum carry)
+
+(set-signal! input-1 1)
+(propagate)
+
+(set-signal! input-2 1)
+(propagate)
+
+;; Exercise 3.31
+;; The initialization is required to ensure that the function boxes are working correctly.
+;; Without it, the output may be incorrect until all their inputs have changed at lease once.
+;; For example, supposing that input and output are initially set to 0, calling (inverter input output)
+;; would not change the value of output to 1 after the inverter delay, as expected.
+;; In the previous half adder with the two inputs set to 0,
+;; at a first glance it would seem to work since the outputs are new wires with 0 signal.
+;; However, after changing input-1 to 1, only the internal D wire would be updated,
+;; but the value of E would not change (since C is not changed). This means that S would still be 0, incorrectly.
+;; Only after changing also B to 1, the value of C is updated, causing E to be set correctly and S to be 0.
+;; Afterwards, the adder will work correctly on input signal change.
+
+;; c)
+(define (make-time-segment time queue)
+  (cons time queue))
+
+(define (segment-time s) (car s))
+(define (segment-queue s) (cdr s))
+
+(define (make-agenda) (list 0))
+(define (current-time agenda) (car agenda))
+(define (set-current-time! agenda time)
+  (set-car! agenda time))
+(define (segments agenda) (cdr agenda))
+(define (set-segments! agenda segments)
+  (set-cdr! agenda segments))
+(define (first-segment agenda) (car (segments agenda)))
+(define (rest-segments agenda) (cdr (segments agenda)))
+(define (empty-agenda? agenda)
+  (null? (segments agenda)))
+
+(define (add-to-agenda! time action agenda)
+  (define (belongs-before? segments)
+    (or (null? segments)
+	(< time (segment-time (car segments)))))
+  (define (make-new-time-segment time action)
+    (let ((q (make-queue)))
+      (insert-queue! q action)
+      (make-time-segment time q)))
+  (define (add-to-segments! segments)
+    (if (= (segment-time (car segments)) time)
+	(insert-queue! (segment-queue (car segments))
+		       action)
+	(let ((rest (cdr segments)))
+	  (if (belongs-before? rest)
+	      (set-cdr!
+	       segments
+	       (cons (make-new-time-segment time action)
+		     (cdr segments)))
+	      (add-to-segments! rest)))))
+  (let ((segments (segments agenda)))
+    (if (belongs-before? segments)
+	(set-segments!
+	 agenda
+	 (cons (make-new-time-segment time action)
+	       segments))
+	(add-to-segments! segments))))
+
+(define (remove-first-agenda-item! agenda)
+  (let ((q (segment-queue (first-segment agenda))))
+    (delete-queue! q)
+    (if (empty-queue? q)
+	(set-segments! agenda (rest-segments agenda)))))
+
+(define (first-agenda-item agenda)
+  (if (empty-agenda? agenda)
+      (error "Agenda is empty -- FIRST-AGENDA-ITEM")
+      (let ((first-seg (first-segment agenda)))
+	(set-current-time! agenda (segment-time first-seg))
+	(front-queue (segment-queue first-seg)))))
+
+
+;; Exercise 3.32
+(define w1 (make-wire))
+(define w2 (make-wire))
+(define o (make-wire))
+
+(and-gate w1 w2 o)
+
+;; First we setup the gate
+(set-signal! w1 0)
+(propagate)
+(set-signal! w2 1)
+(propagate)
+
+;; At this point o has a signal of 0.
+;; Now suppose that we change the input signals
+(set-signal! w1 1)
+(set-signal! w2 0)
+(propagate)
+
+;; The set-signal! calls set the signal on the wire immediately, and runs the action procedures attached by the gate to the wires.
+;; The first procedure is ran when both w1 and w2 are 1. Therefore, it instructs the agenda to set the output to 1 after the delay.
+;; The second procedure is ran when w1 is 1 and w2 is 0. Therefore, it instructs the agenda to set the output to 0 after the delay.
+;; If we run them in FIFO order, the and gate will correctly output a 0. If we run them in LIFO order instead, it will output a 1.
+;; We need FIFO order because each procedure operates on the signal values that were present when it was inserted in the agenda,
+;; therefore new procedures contain updated information that needs to be used later.
+
+;; In this particular case, setting w2 before w1 would have worked also in LIFO order, since first both inputs are 0, and then w1 is changed to 1,
+;; meaning that the output is 0 for both procedures. This is however due to chance, and for example a or gate would have reported the wrong value in this situation.
+
+
