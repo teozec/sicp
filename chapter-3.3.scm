@@ -1126,8 +1126,8 @@ z2 ; ((a b) a b)
 	     (for-each-except setter
 			      inform-about-value
 			      constraints))
-	    ((not (= value newval)
-		  (error "Contradiction" (list value newval))))
+	    ((not (= value newval))
+		  (error "Contradiction" (list value newval)))
 	    (else 'ignored)))
 
     (define (forget-my-value retractor)
@@ -1194,15 +1194,92 @@ z2 ; ((a b) a b)
     'ok))
 
 
-(define C (make-connector))
-(define F (make-connector))
-(celsius-fahrenheit-converter C F)
+;;(define C (make-connector))
+;;(define F (make-connector))
+;;(celsius-fahrenheit-converter C F)
+;;(probe "Celsius temp" C)
+;;(probe "Fahrenheit temp" F)
+
+;;(set-value! C 25 'user)
+;;(set-value! F 212 'user)
+;;(forget-value! C 'user)
+;;(set-value! F 212 'user)
 
 
-(probe "Celsius temp" C)
-(probe "Fahrenheit temp" F)
+;; Exercise 3.33
+(define (averager a b c)
+  (let ((sum (make-connector))
+	(half (make-connector)))
+    (adder a b sum)
+    (constant 1/2 half)
+    (multiplier sum half c)))
 
-(set-value! C 25 'user)
-(set-value! F 212 'user)
-(forget-value! C 'user)
-(set-value! F 212 'user)
+;; Exercise 3.34
+(define (squarer a b)
+  (multiplier a a b))
+
+;; The issue is that the multiplier does not know that the two factors have the same value.
+;; Thus, if we set the value of a also b is set because the values of the two factors is known,
+;; while if we set the value of b the value of a is not set, since from the point of view of the multiplier
+;; one of the three unknowns is missing, even if we know there is an additional constraint on the factors..
+
+;; Exercise 3.35
+(define (squarer a b)
+  (define (process-new-value)
+    (if (has-value? b)
+	(if (< (get-value b) 0)
+	    (error "square less than 0 -- SQUARER" (get-value b))
+	    (set-value! a
+			(sqrt (get-value b))
+			me))
+	(if (has-value? a)
+	    (set-value! b
+		    (square (get-value a))
+		    me))))
+
+  (define (process-forget-value)
+    (forget-value! a me)
+    (forget-value! b me)
+    (process-new-value))
+
+  (define (me request)
+    (cond ((eq? request 'I-have-a-value)
+	   (process-new-value))
+	  ((eq? request 'I-lost-my-value)
+	   (process-forget-value))
+	  (else
+	   (error "Unknown request -- MULTIPLIER" request))))
+
+  (connect a me)
+  (connect b me)
+  me)
+
+  
+;; Exercise 3.36
+;; Done on paper
+
+;; Exercise 3.37
+(define (celsius-fahrenheit-converter-expr x)
+  (c+ (c* (c/ (cv 9) (cv 5))
+	  x)
+      (cv 32)))
+
+(define (c+ x y)
+  (let ((z (make-connector)))
+    (adder x y z)
+    z))
+
+(define (c* x y)
+  (let ((z (make-connector)))
+    (multiplier x y z)
+    z))
+
+(define (c/ x y)
+  (let ((z (make-connector)))
+    (multiplier y z x)
+    z))
+  
+(define (cv value)
+  (let ((z (make-connector)))
+    (constant value z)
+    z))
